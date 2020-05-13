@@ -1,0 +1,36 @@
+//
+//  version.hpp.in
+//
+//  Copyright 2020 Marco Oliva. All rights reserved.
+//
+
+#ifndef version_hpp
+#define version_hpp
+
+namespace rimerge
+{
+
+struct Version
+{
+    static constexpr char RIMERGE_GIT_BRANCH[] = "@GIT_BRANCH@";
+    static constexpr char RIMERGE_GIT_COMMIT_HASH[] = "@GIT_COMMIT_HASH@";
+    static constexpr size_type RIMERGE_MAJOR = 0;
+    static constexpr size_type RIMERGE_MINOR = 3;
+    static constexpr size_type RIMERGE_PATCH = 6;
+    
+    static void print()
+    {
+        std::cout
+        << RIMERGE_GIT_BRANCH << ":"
+        << RIMERGE_GIT_COMMIT_HASH << ":"
+        << " "
+        << RIMERGE_MAJOR << "." << RIMERGE_MINOR << "." << RIMERGE_PATCH
+        << std::endl;
+        
+        exit(0);
+    }
+};
+
+}
+
+#endif //version_hpp
