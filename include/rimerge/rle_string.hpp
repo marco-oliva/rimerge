@@ -1,7 +1,7 @@
 //
-//  rle_string.hpp
+//  rindex.hpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
+//  Copyright 2020 Nicola Prezza. All rights reserved.
 //
 
 #ifndef rle_string_hpp

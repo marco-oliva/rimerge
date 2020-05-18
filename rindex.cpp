@@ -11,7 +11,8 @@ namespace rimerge
 
 //------------------------------------------------------------------------------
 
-void Alphabet::update(byte_type i)
+void
+Alphabet::update(byte_type i)
 {
     used_chars[i] = true;
     
@@ -22,13 +23,15 @@ void Alphabet::update(byte_type i)
     }
 }
 
-void Alphabet::init()
+void
+Alphabet::init()
 {
     alphabet = bitvector(used_chars);
     initialized = true;
 }
 
-byte_type Alphabet::previous(byte_type c) const
+byte_type
+Alphabet::previous(byte_type c) const
 {
     size_type rank = alphabet.rank(c);
     
@@ -38,7 +41,8 @@ byte_type Alphabet::previous(byte_type c) const
     return static_cast<byte_type> (alphabet.select(rank - 1));
 }
 
-byte_type Alphabet::following(byte_type c) const
+byte_type
+Alphabet::following(byte_type c) const
 {
     size_type rank = alphabet.rank(c);
     
@@ -50,7 +54,8 @@ byte_type Alphabet::following(byte_type c) const
     return static_cast<byte_type>(i);
 }
 
-size_type Alphabet::sigma() const
+size_type
+Alphabet::sigma() const
 {
     return alphabet.number_of_1();
 }
@@ -65,8 +70,14 @@ SA_samples::SA_samples(const std::vector<SA_samples::sample_type>& s, const std:
     this->ends   = e;
 }
 
-size_type SA_samples::operator[](const rimerge::size_type i) const
+size_type
+SA_samples::operator[](const rimerge::size_type i) const
 {
+    if (i < ns.size())
+    {
+        return ns[i].second;
+    }
+    
     auto it_s = std::lower_bound(starts.begin(), starts.end(), std::make_pair(i,0ULL));
     if (it_s != starts.end() && it_s->first == i)
     {
@@ -83,30 +94,41 @@ size_type SA_samples::operator[](const rimerge::size_type i) const
     return invalid_value();
 }
 
-void SA_samples::write(SA_samples::sample_type& s, std::ofstream& out)
+void
+SA_samples::write(SA_samples::sample_type& s, FILE* out)
 {
-    out.write((char*)& s.first, SA_samples::SAMPLE_BYTES);
-    out.write((char*)& s.second, SA_samples::SAMPLE_BYTES);
+    fwrite(&(s.first) , SA_samples::SAMPLE_BYTES, 1, out);
+    fwrite(&(s.second) , SA_samples::SAMPLE_BYTES, 1, out);
 }
 
 //------------------------------------------------------------------------------
 
-void SA_updates::update_left(const rindex& left, const rindex& right, size_type ra_i, size_type ra_j, size_type i, size_type j, size_type thread)
+std::pair<size_type, size_type>
+SA_updates::update_left(const rindex& left, const rindex& right, size_type ra_i, size_type ra_j, std::pair<size_type, size_type> prev_samples, size_type i, size_type j, size_type thread)
 {
+    // <RA[ra_j -1], RA[ra_j]>
+    std::pair<size_type, size_type> out = {0,0};
+    
     left_map_type& thread_map = left_samples[thread];
     if (thread_map.find(ra_j) == thread_map.end())
     { // samples not alredy computed
-        if ((ra_i < (left.size() - 1)) and left[ra_i] == left[ra_i + 1])
+        if ((ra_i < (left.size() - 1)) and left[ra_i - 1] == left[ra_i])
         {
-            auto prev_sample = thread_map[ra_i];
-            thread_map[ra_j] = std::make_pair(prev_sample.first -1  , prev_sample.second - 1);
+//            auto from_map = thread_map.find(ra_i);
+//            if (prev_sample != thread_map.end())
+//                thread_map[ra_j] = std::make_pair(from_map->second.first -1, from_map->second.second - 1);
+//            else
+            
+            return  std::make_pair(prev_samples.first - 1, prev_samples.second -1);
+            
+            
         }
         else
         { // sample at the beginning of the interruption point
             size_type p1 = 0;
-            if (left.rank(std::min(ra_i+1, left.size()), right[i])>0)
+            if (left.rank(std::min(ra_i, left.size()), right[i])>0)
             { // BWT_right[i] \in BWT_left[1, RA[i]]
-                size_type rank = left.rank(std::min(ra_i+1, left.size()), right[i]);
+                size_type rank = left.rank(std::min(ra_i, left.size()), right[i]);
                 p1 = left.select(rank - 1, right[i]);
             }
             else
@@ -124,9 +146,9 @@ void SA_updates::update_left(const rindex& left, const rindex& right, size_type 
 
             // sample at the end of the interruption point
             size_type p2 = 0;
-            if ((left.rank(left.size(), right[i]) - left.rank(std::min(ra_i + 1, left.size()), right[i]))>0)
+            if ((left.rank(left.size(), right[i]) - left.rank(std::min(ra_i, left.size()), right[i]))>0)
             { // BWT_right[i] \in BWT_left[RA[i], na]
-                size_type rank_before = left.rank(std::min(ra_i + 1, left.size()), right[i]);
+                size_type rank_before = left.rank(std::min(ra_i, left.size()), right[i]);
                 p2 = left.select(rank_before, right[i]);
             }
             else
@@ -142,10 +164,15 @@ void SA_updates::update_left(const rindex& left, const rindex& right, size_type 
                 p2 = left.select(0, following);
             }
     
-            thread_map[ra_j] = std::make_pair(
-                                        ((left.samples()[p1] - 1) % left.size()),
-                                        ((left.samples()[p2] - 1) % left.size()));
+//            thread_map[ra_j] = std::make_pair(
+//                                        ((left.samples()[p1] - 1) % left.size()),
+//                                        ((left.samples()[p2] - 1) % left.size()));
+            return std::make_pair(((left.samples()[p1] - 1) % left.size()), ((left.samples()[p2] - 1) % left.size()));
         }
+    }
+    else //sample in map
+    {
+        return thread_map[ra_j];
     }
 }
 
@@ -162,12 +189,130 @@ void SA_updates::update_right(const rindex& left, const rindex& right, size_type
     }
     else
     {
-        if (left[ra_j] != right[j])
-        {
-            thread_map.insert(std::make_pair(ra_j,std::make_pair(std::make_pair(j, sa_value), std::make_pair (j, sa_value))));
-        }
+        thread_map.insert(std::make_pair(ra_j,std::make_pair(std::make_pair(j, sa_value), std::make_pair (j, sa_value))));
     }
 }
+
+const SA_updates::left_type& SA_updates::find_left(size_type ra_value) const
+{
+    for (size_type i = 0; i < left_samples.size(); i++)
+    {
+        auto entry = left_samples[i].find(ra_value);
+        if ( entry != left_samples[i].end())
+            return entry->second;
+    }
+    return end_left();
+}
+
+const SA_updates::right_type& SA_updates::find_right(size_type ra_value) const
+{
+    for (size_type i = 0; i < right_samples.size(); i++)
+    {
+        auto entry = right_samples[i].find(ra_value);
+        if ( entry != right_samples[i].end())
+            return entry->second;
+    }
+    return end_right();
+}
+
+//------------------------------------------------------------------------------
+void Samples_Merger::operator()(size_type index, bool FL, size_type inserting_index, size_type ra_value, size_type prev_ra_value)
+{
+    using SG = rindex::sample_genre;
+    
+    SA_samples::sample_type sample;
+    if (FL and LFL)
+    {
+        if (index == 0)
+            { sample = {inserting_index, left.samples()[0]}; SA_samples::write(sample, ssa); }
+        else if (index > 0 and index < left.sequences())
+        {
+            //spdlog::info("Don't worry about this one, its in the nsa.");
+        }
+        else if (left.its(index) != SG::NOT)
+        {
+            sample = {inserting_index, left.samples()[index]};
+            if (left.its(index) == SG::START) { SA_samples::write(sample, ssa); }
+            else { SA_samples::write(sample, esa); } // (left.its(index) == SG::END)
+        }
+        else if ((index == (ra_value - 1)) and (left[index] != right[LRI + 1]))
+        {
+            auto left_entry = updates.find_left(ra_value);
+            if (left_entry != updates.end_left())
+            {
+                sample = {inserting_index, left_entry.first};
+                SA_samples::write(sample, esa);
+            }
+            else { spdlog::error("Sample missing in left_updates! {}", ra_value); /*exit(1)*/; }
+        }
+        LFL = true; LLI = index;
+    }
+    else if (FL and not LFL)
+    {
+        if (left[index] != right[LRI])
+        {
+            auto left_entry = updates.find_left(prev_ra_value);
+            if (left_entry != updates.end_left())
+            {
+                sample = {inserting_index, left_entry.second};
+                SA_samples::write(sample, ssa);
+            }
+            else { spdlog::error("Sample missing in left_updates! {}", prev_ra_value); /*exit(1)*/; }
+        }
+        else if ((index == ra_value - 1) and left[index] != right[LRI + 1])
+        {
+            auto left_entry = updates.find_left(ra_value);
+            if (left_entry != updates.end_left())
+            {
+                sample = {inserting_index, left_entry.first};
+                SA_samples::write(sample, esa);
+            }
+            else { spdlog::error("Sample missing in left_updates! {}", ra_value); /*exit(1)*/; }
+        }
+        LFL = true; LLI = index;
+    }
+    else if (not FL and not LFL)
+    {
+        auto right_entry = updates.find_right(ra_value);
+        if (right.its(index) != SG::NOT)
+        {
+            sample = {inserting_index, right.samples()[index] + left.size()};
+            if (right.its(index) == SG::START) { SA_samples::write(sample, ssa); }
+            else { SA_samples::write(sample, esa); } // (right.its(index) == SG::END)
+        }
+        else if ((right_entry != updates.end_right()) and (right_entry.second.first == index) and (right[index] != left[LLI + 1]))
+        {
+            sample = {inserting_index, right_entry.second.second + left.size()};
+            SA_samples::write(sample, esa);
+        }
+        LFL = false; LRI = index;
+    }
+    else if (not FL and LFL)
+    {
+        auto right_entry = updates.find_right(ra_value);
+        if ((right.its(index) != SG::NOT) and (right[index] != left[LLI]))
+        {
+            sample = {inserting_index, right.samples()[index] + left.size()};
+            SA_samples::write(sample, ssa); // (right.its(index) == SG::END)
+        }
+        else if (right[index] != left[LLI])
+        {
+            if (right_entry != updates.end_right())
+            {
+                sample = {inserting_index, right_entry.first.second + left.size()};
+                SA_samples::write(sample, ssa);
+            }
+            else { spdlog::error("Sample missing in right_updates! {}", ra_value); /*exit(1)*/; }
+        }
+        else if ((right_entry != updates.end_right()) and (right_entry.first.first == index)) // not super sure about this one
+        {
+            sample = {inserting_index, right_entry.first.second + left.size()};
+            SA_samples::write(sample, esa);
+        }
+        LFL = false; LRI = index;
+    }
+}
+
 
 //------------------------------------------------------------------------------
 
@@ -245,7 +390,7 @@ void rindex::read_bwt(byte_type* bwt_start, size_type bwt_size)
     bwt_.runs = bitvector(runs_bv);
     
     bwt_.runs_per_letter = std::vector<bitvector>(256);
-    for(size_type i=0;i<256;++i)
+    for(size_type i=0; i < 256; ++i)
         bwt_.runs_per_letter[i] = bitvector(runs_per_letter_bv[i]);
     
     bwt_.run_heads = huff_string(run_heads_s);
@@ -284,7 +429,8 @@ void
 rindex::init(
 byte_type* bwt_start, size_type bwt_size,
 byte_type* ssa_start, size_type ssa_size,
-byte_type* esa_start, size_type esa_size)
+byte_type* esa_start, size_type esa_size,
+byte_type* nsa_start, size_type nsa_size)
 {
     // read bwt
     read_bwt(bwt_start, bwt_size);
@@ -292,14 +438,16 @@ byte_type* esa_start, size_type esa_size)
     // read samples
     read_samples(ssa_start, ssa_size, samples_.starts);
     read_samples(esa_start, esa_size, samples_.ends);
+    read_samples(nsa_start, nsa_size, samples_.ns);
 }
 
 rindex::rindex(
 byte_type* bwt_start, size_type bwt_size,
 byte_type* ssa_start, size_type ssa_size,
-byte_type* esa_start, size_type esa_size)
+byte_type* esa_start, size_type esa_size,
+byte_type* nsa_start, size_type nsa_size)
 {
-    init(bwt_start, bwt_size, ssa_start, ssa_size, esa_start, esa_size);
+    init(bwt_start, bwt_size, ssa_start, ssa_size, esa_start, esa_size, nsa_start, nsa_size);
 }
 
 rindex::rindex(const rle_string& b, const SA_samples& sas)
@@ -327,6 +475,16 @@ rindex::rindex(const rle_string& b, const SA_samples& sas)
         F[i] += F[i-1];
     
     samples_ = sas; // copy
+}
+
+rindex::sample_genre rindex::its(size_type i) const
+{
+    if (i == 0) return sample_genre::START;
+    else if (i == bwt_.size() - 1) return sample_genre::END;
+    else if (bwt_[i - 1] != bwt_[i]) return sample_genre::START;
+    else if (bwt_[i] != bwt_[i + 1]) return sample_genre::END;
+    
+    return sample_genre::NOT;
 }
 
 range_type rindex::full_range()
@@ -417,6 +575,9 @@ buildRA(const rindex& left, const rindex& right, MergeBuffers& buffers, SA_updat
         size_type j = 0, ra_j = 0, i = sequence, ra_i = left.sequences() + sequence;
         buffers.insert(ra_i, thread);
         
+        std::pair<size_type, size_type> prev_samples = std::make_pair(left.samples()[ra_i -1], left.samples()[ra_i]);
+        sa_updates.left_samples[thread].insert(std::make_pair(ra_i, prev_samples));
+        
         spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence , i, char(right[i]), i, right_sa_value);
     
         while (right[i] != STRING_TERMINATOR and right[i] != DATA_TERMINATOR)
@@ -428,10 +589,12 @@ buildRA(const rindex& left, const rindex& right, MergeBuffers& buffers, SA_updat
     
             buffers.insert(ra_j, thread);
             
-            if (right[j] != left[ra_j - 1] or (ra_j < left.size() - 1 and (right[j] != left[ra_j + 1 - 1])))
+            prev_samples = sa_updates.update_left(left, right, ra_i, ra_j, prev_samples, i, j, thread);
+            
+            if (right[j] != left[ra_j - 1] or (ra_j < left.size() - 1 and (right[j] != left[ra_j - 1 + 1])))
             {
                 sa_updates.update_right(left, right, ra_j, j, right_sa_value, thread);
-                sa_updates.update_left(left, right, ra_i, ra_j, i, j, thread);
+                sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples));
             }
             
             i = j;
@@ -449,14 +612,27 @@ buildRA(const rindex& left, const rindex& right, MergeBuffers& buffers, SA_updat
 void
 interleave(const rindex& left, const rindex& right, MergeBuffers& buffers, SA_updates& sa_updates)
 {
+    // Write nsa file
+    FILE *nsa; std::string nsa_path(buffers.parameters.out_prefix + ".nsa"); nsa = fopen(nsa_path.c_str(), "wb");
+    for (size_type i = 0; i < left.sequences(); i++)
+        {SA_samples::sample_type sample = {i, left.samples()[i]}; SA_samples::write(sample,nsa);}
+    for (size_type i = 0; i < right.sequences(); i++)
+        {SA_samples::sample_type sample = {i + left.sequences(), right.samples()[i]};SA_samples::write(sample,nsa);}
+    
+    fclose(nsa);
+    
     // Merge the indices
     #pragma omp parallel for schedule(static)
     for (size_type job = 0; job < buffers.job_ranges.size(); job++)
     {
         // Output
-        std::ofstream bwt(buffers.parameters.out_prefix + "_" + std::to_string(job) + ".bwt");
-        std::ofstream ssa(buffers.parameters.out_prefix + "_" + std::to_string(job) + ".ssa", std::ios::binary);
-        std::ofstream esa(buffers.parameters.out_prefix + "_" + std::to_string(job) + ".esa", std::ios::binary);
+        FILE *bwt, *ssa, *esa;
+        
+        std::string base_path(buffers.parameters.out_prefix + "_" + std::to_string(job));
+        
+        std::string bwt_path = base_path + ".bwt"; bwt = fopen(bwt_path.c_str(), "wb");
+        std::string ssa_path = base_path + ".ssa"; ssa = fopen(ssa_path.c_str(), "wb");
+        std::string esa_path = base_path + ".esa"; esa = fopen(esa_path.c_str(), "wb");
 
         ProducerBuffer<RankArray> ra(*(buffers.ra[job]));
         
@@ -464,133 +640,44 @@ interleave(const rindex& left, const rindex& right, MergeBuffers& buffers, SA_up
         size_type left_iter = start;
         
         // Chars from 'right' inserted from other threads.
-        size_type inserted_chars = 0;
+        size_type right_iter = 0;
         for (size_type i = 0; i < job; i++)
         {
-            inserted_chars += std::accumulate(buffers.ra[i]->value_counts.begin(), buffers.ra[i]->value_counts.end(), 0);
+            right_iter += std::accumulate(buffers.ra[i]->value_counts.begin(), buffers.ra[i]->value_counts.end(), 0);
         }
+
+        Samples_Merger sample_merger(right, left, ssa, esa, sa_updates);
         
-        SA_samples::sample_type sample;
-        SA_updates::right_map_type& right_updates = sa_updates.right_samples[job]; // Fix me
-        SA_updates::left_map_type& left_updates = sa_updates.left_samples[job];
+        size_type prev_ra = 0;
         
-        spdlog::info("rimerge::interleave(): Job {}: start merging", job);
         while (!(ra.end()))
         {
             // Add from 'left'
             while (left_iter < *ra)
             {
-                bwt.put(left[left_iter]);
-                if (left_iter == 0) // start of left
-                {
-                    sample = {0, left.samples()[0]};
-                    SA_samples::write(sample, ssa);
-                }
-                else if (left_iter == left.size() - 1) // end of left
-                {
-                    sample = {left.size() - 1 + inserted_chars, left.samples()[left.size() - 1]};
-                    if (left[left_iter] != left[left_iter - 1]) SA_samples::write(sample, ssa);
-                    else SA_samples::write(sample, esa);
-                }
-                else if (left[left_iter - 1] != left[left_iter])
-                {
-                    sample = {left_iter + inserted_chars, left.samples()[left_iter]};
-                    SA_samples::write(sample, ssa);
-                }
-                else if (left[left_iter + 1] != left[left_iter])
-                {
-                    sample = {left_iter + inserted_chars, left.samples()[left_iter]};
-                    SA_samples::write(sample, esa);
-                }
-                else if (left_iter == *ra - 1) // sta per iniziare una serie da right
-                {
-                    auto left_entry = left_updates[*ra];
-                    sample = {left_iter + inserted_chars, left_entry.first};
-                    if (left[left_iter - 1] != left[left_iter]) SA_samples::write(sample, ssa);
-                    else SA_samples::write(sample, esa);
-                }
-                
-                ++left_iter;
+                fputc(left[left_iter], bwt);
+                sample_merger(left_iter, true, left_iter + right_iter, *ra, prev_ra);
+                left_iter++;
             }
             
             // Add one from 'right'
-            bwt.put(right[inserted_chars]);
+            fputc(right[right_iter], bwt);
+            sample_merger(right_iter, false, left_iter + right_iter, *ra, prev_ra);
             
-            // Check if we need to insert a sample from right
-            auto right_entry = right_updates[*ra];
-            if ((inserted_chars) == right_entry.first.first)
-            {
-                sample = {left_iter + right_entry.first.first, right_entry.first.second + left.size()};
-                SA_samples::write(sample, ssa);
-            }
-            else if ((inserted_chars) == right_entry.second.first)
-            {
-                sample = {left_iter + right_entry.second.first, right_entry.second.second + left.size()};
-                SA_samples::write(sample, esa);
-            }
-            else if ((inserted_chars) == right.size() - 1)
-            {
-                // end
-                sample = {left_iter + inserted_chars, right.samples()[inserted_chars]  + left.size()}; // fix me
-                SA_samples::write(sample, esa);
-            }
-            else if (right[inserted_chars - 1] != right[inserted_chars])
-            {
-                sample = {left_iter + inserted_chars, right.samples()[inserted_chars]};
-                SA_samples::write(sample, ssa);
-            }
-            else if (right[inserted_chars + 1] != right[inserted_chars])
-            {
-                sample = {left_iter + inserted_chars, right.samples()[inserted_chars]};
-                SA_samples::write(sample, esa);
-            }
-
-
-            size_type prev = *ra;
-            ++ra;
-            
-            if (ra.offset != 0 and prev != *ra) // Siamo alla fine di una serie di caratteri da right, metto un sample se necessario
-            {
-                if (left[left_iter] != right[inserted_chars])
-                {
-                    auto entry = left_updates[prev];
-                    sample = {left_iter + inserted_chars, entry.second};
-                    SA_samples::write(sample, ssa);
-                }
-            }
-
-            inserted_chars++;
+            prev_ra = *ra; ++ra;
+            right_iter++;
         }
         
         // Add the remaining part of 'left'.
         while ((left_iter <= buffers.job_ranges[job].second and job < buffers.job_ranges.size() - 1) or (left_iter < left.size() and job == buffers.job_ranges.size() - 1))
         {
-            bwt.put(left[left_iter]);
-            
-            if (left_iter == 0) // start of left, shouldn't happen
-            {
-                sample = {0, left.samples()[0]};
-                SA_samples::write(sample, ssa);
-            }
-            else if (left_iter == left.size() - 1) // end of left
-            {
-                sample = {left.size() - 1 + inserted_chars, left.samples()[left.size() - 1]};
-                if (left[left_iter] != left[left_iter - 1]) SA_samples::write(sample, ssa);
-                else SA_samples::write(sample, esa);
-            }
-            else if (left[left_iter - 1] != left[left_iter])
-            {
-                sample = {left_iter + inserted_chars, left.samples()[left_iter]};
-                SA_samples::write(sample, ssa);
-            }
-            else if (left[left_iter + 1] != left[left_iter])
-            {
-                sample = {left_iter + inserted_chars, left.samples()[left_iter]};
-                SA_samples::write(sample, esa);
-            }
-            
+            fputc(left[left_iter], bwt);
+            sample_merger(left_iter, true, left_iter + right_iter, *ra, prev_ra);
             ++left_iter;
         }
+    
+        // Close files
+        fclose(bwt); fclose(ssa); fclose(esa);
     }
     
     
@@ -599,16 +686,16 @@ interleave(const rindex& left, const rindex& right, MergeBuffers& buffers, SA_up
     std::ofstream o_bwt(buffers.parameters.out_prefix + ".bwt");
     std::ofstream o_ssa(buffers.parameters.out_prefix + ".ssa", std::ios::binary);
     std::ofstream o_esa(buffers.parameters.out_prefix + ".esa", std::ios::binary);
-    
+
     for(size_type job = 0; job < buffers.job_ranges.size(); job++)
     {
         spdlog::info("rimerge::interleave(): Concatenating and removing files: {} => out", job);
-        
+
         path = buffers.parameters.out_prefix + "_" + std::to_string(job) + ".bwt";
         std::ifstream i_bwt(path);
         o_bwt << i_bwt.rdbuf(); i_bwt.close();
         std::remove(path.c_str());
-        
+
         path = buffers.parameters.out_prefix + "_" + std::to_string(job) + ".ssa";
         std::ifstream i_ssa(path);
         o_ssa << i_ssa.rdbuf(); i_ssa.close();

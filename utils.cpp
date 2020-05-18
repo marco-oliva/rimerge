@@ -192,7 +192,6 @@ namespace TempFile
     {
         if(!(filename.empty()))
         {
-            spdlog::info("TmpFile::remove(): Removing file of {} MB", inMegabytes(std::filesystem::file_size(filename)));
             std::remove(filename.c_str());
             handler.filenames.erase(filename);
             filename.clear();

@@ -139,11 +139,6 @@ set(rimerge-libs
         "${spdlog-lib}"
         "${OpenMP_CXX_LIBRARY}")
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    message(STATUS "GNU compiler detected, adding stdc++fs")
-    list(APPEND rimerge-libs "stdc++fs")
-endif()
-
 ################################################################################
 # Directory structure
 

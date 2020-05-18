@@ -1,7 +1,7 @@
 //
 //  rle_string.cpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
+//  Copyright 2020 Nicola Prezza. All rights reserved.
 //
 
 #include <rimerge/rle_string.hpp>

@@ -1,2 +1,0 @@
-# rimerge
-r-index merge

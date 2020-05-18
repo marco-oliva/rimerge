@@ -16,6 +16,7 @@
 static std::string    bwt_ext = ".bwt";
 static std::string starts_ext = ".ssa";
 static std::string   ends_ext = ".esa";
+static std::string    nsa_ext = ".nsa";
 
 int main(int argc, char **argv)
 {
@@ -45,20 +46,24 @@ int main(int argc, char **argv)
     mio::mmap_source bwt_a(a_prefix + bwt_ext);
     mio::mmap_source ssa_a(a_prefix + starts_ext);
     mio::mmap_source esa_a(a_prefix + ends_ext);
+    mio::mmap_source nsa_a(a_prefix + nsa_ext);
     A.init((rimerge::byte_type*) bwt_a.data(), bwt_a.size(),
            (rimerge::byte_type*) ssa_a.data(), ssa_a.size(),
-           (rimerge::byte_type*) esa_a.data(), esa_a.size());
-    bwt_a.unmap(); ssa_a.unmap(); esa_a.unmap();
+           (rimerge::byte_type*) esa_a.data(), esa_a.size(),
+           (rimerge::byte_type*) nsa_a.data(), nsa_a.size());
+    bwt_a.unmap(); ssa_a.unmap(); esa_a.unmap(); nsa_a.unmap();
     spdlog::info("Reading A completed\nA\n\tsize: {}\n\tsequences: {}\n\tr: {}", A.size(), A.sequences(), A.runs());
     
     spdlog::info("Reading B from disk");
     mio::mmap_source bwt_b(b_prefix + bwt_ext);
     mio::mmap_source ssa_b(b_prefix + starts_ext);
     mio::mmap_source esa_b(b_prefix + ends_ext);
+    mio::mmap_source nsa_b(b_prefix + nsa_ext);
     B.init((rimerge::byte_type*) bwt_b.data(), bwt_b.size(),
            (rimerge::byte_type*) ssa_b.data(), ssa_b.size(),
-           (rimerge::byte_type*) esa_b.data(), esa_b.size());
-    bwt_b.unmap(); ssa_b.unmap(); esa_b.unmap();
+           (rimerge::byte_type*) esa_b.data(), esa_b.size(),
+           (rimerge::byte_type*) nsa_b.data(), nsa_b.size());
+    bwt_b.unmap(); ssa_b.unmap(); esa_b.unmap(); nsa_b.unmap();
     spdlog::info("Reading B completed\nB\n\tsize: {}\n\tsequences: {}\n\tr: {}", B.size(), B.sequences(), B.runs());
     
     rimerge::MergeParameters merge_parameters;

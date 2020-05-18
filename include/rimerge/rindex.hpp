@@ -49,6 +49,7 @@ public:
     
     std::vector<sample_type> starts;
     std::vector<sample_type>   ends;
+    std::vector<sample_type>     ns;
     
     SA_samples() = default;
     SA_samples(const std::vector<sample_type>& s, const std::vector<sample_type>& e);
@@ -56,7 +57,10 @@ public:
     size_type operator[](const size_type i) const;
     
     constexpr static size_type SAMPLE_BYTES = 5;
-    static void write(sample_type& s, std::ofstream& out);
+    static void write(sample_type& s, FILE* out);
+    
+    sample_type invalid_sample() {return {invalid_value(), 0}; }
+    
 };
 
 //------------------------------------------------------------------------------
@@ -65,26 +69,79 @@ class SA_updates
 {
 public:
     
-    //                             RA value             SA[RA[j]]  SA[RA[j+1]]
-    using left_map_type = std::map<size_type, std::pair<size_type, size_type>>;
-    //                              RA value                       min j     j-th sa               max j     j-th sa
-    using right_map_type = std::map<size_type, std::pair<std::pair<size_type,size_type>, std::pair<size_type, size_type>>>;
+    //                           SA[RA[j]]  SA[RA[j+1]]
+    using left_type  = std::pair<size_type, size_type>;
+    //                                     min j     j-th sa               max j     j-th sa
+    using right_type = std::pair<std::pair<size_type,size_type>, std::pair<size_type, size_type>>;
+    
+    //                              RA value
+    using left_map_type = std::map<size_type, left_type>;
+    //                              RA value
+    using right_map_type = std::map<size_type, right_type>;
     
     std::vector<left_map_type> left_samples;
     std::vector<right_map_type> right_samples;
     
-    SA_updates(size_type threads) :left_samples(threads), right_samples(threads) {}
+    SA_updates(size_type threads) :left_samples(threads), right_samples(threads)
+    {
+        end_left_  = {invalid_value(), invalid_value()};
+        end_right_ = {{invalid_value(),invalid_value()}, {invalid_value(),invalid_value()}};
+    }
     
-    void update_left(const rindex& left, const rindex& rigth, size_type ra_i, size_type ra_j, size_type i, size_type j, size_type thread);
+    std::pair<size_type, size_type> update_left(const rindex& left, const rindex& right, size_type ra_i, size_type ra_j, std::pair<size_type, size_type> prev_samples, size_type i, size_type j, size_type thread);
     void update_right(const rindex& left, const rindex& right, size_type ra_j, size_type j, size_type sa_value, size_type thread);
     
+    
+    const right_type& find_right(size_type ra_value) const;
+    const left_type&   find_left(size_type ra_value) const;
+    
+    const right_type& end_right() const {return end_right_; }
+    const left_type& end_left() const {return end_left_; }
+    
+    right_type end_right_;
+    left_type   end_left_;
 };
 
 //------------------------------------------------------------------------------
 
+class Samples_Merger
+{
+private:
+    const rindex& left; const rindex& right;
+    FILE* ssa; FILE* esa;
+    const SA_updates& updates;
+    
+    bool LFL = false; // last from left
+    size_type LRI = 0; size_type LLI = 0; // last right index and last left index
+    size_type inserted_chars = 0;
+    
+public:
+
+    Samples_Merger(const rindex& r, const rindex& l, FILE* ss, FILE* es, const SA_updates& u) :
+    left(l), right(r), updates(u)
+    {
+        ssa = ss; esa = es;
+        LFL = true;
+        LRI = 0; LLI = 0;
+        inserted_chars = 0;
+    }
+    
+    void operator()(size_type index, bool FL, size_type inserting_index, size_type ra_value, size_type prev_ra_value);
+};
+
+//------------------------------------------------------------------------------
+
+
 class rindex{
 
 public:
+    
+    enum sample_genre
+    {
+        NOT,
+        START,
+        END
+    };
     
     byte_type terminator = DATA_TERMINATOR;
     
@@ -97,7 +154,8 @@ public:
     // From disk
     rindex(byte_type* bwt_start, size_type bwt_size,
            byte_type* ssa_start, size_type ssa_size,
-           byte_type* esa_start, size_type esa_size);
+           byte_type* esa_start, size_type esa_size,
+           byte_type* nsa_start, size_type nsa_size);
     
     // From disk, without samples
     rindex(byte_type* bwt_start, size_type bwt_size);
@@ -106,7 +164,8 @@ public:
     
     void init(byte_type* bwt_start, size_type bwt_size,
               byte_type* ssa_start, size_type ssa_size,
-              byte_type* esa_start, size_type esa_size);
+              byte_type* esa_start, size_type esa_size,
+              byte_type* nsa_start, size_type nsa_size);
     
     // Statistics
     size_type size() const { return this->bwt_.size(); }
@@ -126,6 +185,9 @@ public:
     size_type rank(size_type i, byte_type c) const { return bwt_.rank(i,c); }
     size_type select(size_type i, byte_type c) const {return bwt_.select(i,c); }
     size_type get_terminator_position() const { return data_terminator_position; }
+    
+    // check if there is a sample in position i "its"="Is There a Sample"
+    sample_genre its(size_type i) const;
     
     // get full BWT range
     range_type full_range();

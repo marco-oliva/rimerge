@@ -35,7 +35,7 @@
 #include <algorithm>
 #include <mutex>
 #include <limits>
-#include <filesystem>
+#include <stdio.h>
 
 
 #include <sdsl/bit_vectors.hpp>
@@ -97,7 +97,6 @@ typedef std::vector<byte_type>  string_type;
 //------------------------------------------------------------------------------
 
 constexpr size_type invalid_value() { return std::numeric_limits<size_type>::max(); }
-
 
 /*
   range_type stores a closed range [starts, second]. Empty ranges are indicated by
