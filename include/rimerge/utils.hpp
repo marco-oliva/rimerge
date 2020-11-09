@@ -25,15 +25,17 @@
 #ifndef rimerge_utils_hpp
 #define rimerge_utils_hpp
 
-#include <algorithm> // a bit ugly
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 #include <array>
 #include <map>
 #include <algorithm>
 #include <mutex>
+#include <atomic>
 #include <limits>
 #include <stdio.h>
 
@@ -44,6 +46,8 @@
 #include <spdlog/spdlog.h>
 
 #include <mio/mio.hpp>
+
+#include <rimerge/malloc_count.h>
 
 #include <omp.h>
 
@@ -82,7 +86,7 @@ constexpr size_type BILLION      = 1000 * MILLION;
 
 constexpr byte_type IMPL_TERMINATOR   = 0;
 constexpr byte_type DATA_TERMINATOR   = 1;
-constexpr byte_type STRING_TERMINATOR = 5;
+constexpr byte_type STRING_TERMINATOR = '$';
 
 //------------------------------------------------------------------------------
 
@@ -96,6 +100,23 @@ typedef std::vector<byte_type>  string_type;
 
 //------------------------------------------------------------------------------
 
+typedef std::pair<byte_type, size_type> run_type;
+
+//------------------------------------------------------------------------------
+
+
+enum sample_genre : byte_type
+{
+    NOT =   0,
+    START = 1,
+    END =   2,
+    START_END = 3 // START & AND
+};
+
+//------------------------------------------------------------------------------
+
+
+constexpr size_type alphabet_max_size() { return std::numeric_limits<byte_type>::max() + 1; }
 constexpr size_type invalid_value() { return std::numeric_limits<size_type>::max(); }
 
 /*
@@ -144,6 +165,11 @@ struct Range
       blocks will not be greater than the length of the range.
     */
     static std::vector<range_type> partition(range_type range, size_type blocks);
+    
+    /*
+      Range to which the value belong
+    */
+    static size_type bin(size_type value, const std::vector<range_type>& ranges);
 };
 
 template<class A, class B>
@@ -376,6 +402,25 @@ removeDuplicates(std::vector<Element>& vec, bool parallel)
 }
 
 //------------------------------------------------------------------------------
+
+template<typename value_type>
+void
+concatenate_file(std::ofstream& dest, std::string& source)
+{
+    // dest.setf(std::ios::app);
+    std::ifstream in(source, std::ios::binary);
+    
+    std::array<value_type, 4096> tmp;
+    while (true)
+    {
+        in.read(reinterpret_cast<char*>(tmp.data()), 4096 * sizeof(value_type));
+        std::size_t cnt = in.gcount() / sizeof(value_type);
+        if (cnt == 0) break;
+        dest.write(reinterpret_cast<char*>(tmp.data()), cnt * sizeof(value_type));
+    }
+    
+    in.close();
+}
 
 } // namespace rimerge
 

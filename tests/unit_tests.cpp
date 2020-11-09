@@ -6,8 +6,9 @@
 
 #include <gtest/gtest.h>
 
+#include <rimerge/utils.hpp>
 #include <rimerge/rle_string.hpp>
-#include <rimerge/rindex.hpp>
+#include <rimerge/r-index-rle.hpp>
 
 
 namespace
@@ -20,18 +21,18 @@ std::string testfiles_dir = "/Users/marco/Repositories/papers/r-merge/tests/file
 TEST(Bitvector, BitvectorEmptyConstructor)
 {
     rimerge::bitvector bitvector;
-    
+
     EXPECT_EQ(bitvector.size(), 0);
 }
 
 TEST(Bitvector, Rank)
 {
     std::vector<bool> set = {0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1};
-    
+
     rimerge::bitvector bitvector(set);
-    
+
     EXPECT_EQ(bitvector.size(), 12);
-    
+
     EXPECT_EQ(0, bitvector.rank(1));
     EXPECT_EQ(0, bitvector.rank(2));
     EXPECT_EQ(1, bitvector.rank(3));
@@ -44,70 +45,203 @@ TEST(Bitvector, Rank)
 TEST(Bitvector, Select)
 {
     std::vector<bool> set = {0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1};
-    
+
     rimerge::bitvector bitvector(set);
-    
+
     EXPECT_EQ(bitvector.size(), 12);
-    
+
     EXPECT_EQ(2, bitvector.select(0));
     EXPECT_EQ(7, bitvector.select(3));
     EXPECT_EQ(11, bitvector.select(5));
 }
 
-TEST(RLEString, EmptyConstructor)
+rimerge::string_type random_string(rimerge::size_type length)
 {
-    rimerge::rle_string rle_test;
-    EXPECT_EQ(0, rle_test.size());
+    srand((rimerge::size_type) rimerge::readTimer());
+
+    // See: https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
+    auto randchar = []() -> char
+    {
+        const rimerge::byte_type charset[] = "ACGTN";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    rimerge::string_type str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    str.push_back('$');
+    return str;
 }
 
-TEST(RLEString, ShortStringConstructor)
+TEST(RLEString, FromEncoder)
 {
-    rimerge::string_type short_string = {'A', 'A', 'A', 'A', 'A', 'B', 'C', 'B'};
-    rimerge::rle_string rle_test(short_string);
-    
-    EXPECT_EQ(8, rle_test.size());
-    EXPECT_EQ(short_string, rle_test.to_string());
-    
-    EXPECT_EQ('A', rle_test[2]);
-    EXPECT_EQ('B', rle_test[7]);
-    
-    EXPECT_EQ(3, rle_test.rank(3, 'A'));
-    EXPECT_EQ(0, rle_test.rank(3, 'B'));
-    EXPECT_EQ(1, rle_test.rank(6, 'B'));
-    
-    EXPECT_EQ(7, rle_test.select(1, 'B'));
-    EXPECT_EQ(0, rle_test.select(0, 'A'));
-    EXPECT_EQ(5, rle_test.select(0, 'B'));
+    std::string path = testfiles_dir + "/test.rle";
+    rimerge::string_type string = {'A','A','A','G','C','A','A','T','T','T','T','T','T','A','A','G','G','A','A','A'};
+    rimerge::RLEString rlet_string(string);
+
+
+    rimerge::RLEString::RLEncoder encoder(path);
+    for (auto e : string) { encoder(e); }
+    encoder.close();
+
+    rimerge::RLEString rle_string;
+    rle_string.load(path);
+
+    EXPECT_EQ(string.size(), rle_string.size());
+    for (std::size_t i = 0; i < string.size(); i++)
+    {
+        EXPECT_EQ(string[i], rle_string[i]);
+    }
 }
 
-TEST(RLEString, CharInARange)
+TEST(RLESEncoder, RandomSequence)
 {
-    rimerge::string_type short_string = {'A', 'A', 'A', 'A', 'A', 'B', 'C', 'C'};
-    rimerge::rle_string rle_test(short_string);
-    
-    rimerge::size_type n = rle_test.rank(rle_test.size(), 'B') - rle_test.rank(4, 'B');
-    EXPECT_EQ(1, n);
+    for (rimerge::size_type r = 0; r < 10; r++)
+    {
+        std::string path = testfiles_dir + "/rnd_seq.seq";
+        rimerge::string_type rnds = random_string(10000);
+
+        rimerge::RLEString::RLEncoder encoder(path);
+
+        for (auto& e : rnds) { encoder(e); }
+        encoder.close();
+
+        rimerge::RLEString rle_string;
+        rle_string.load(path);
+
+        for (rimerge::size_type i = 0; i < rnds.size(); i++)
+        {
+            EXPECT_EQ(rnds[i], rle_string[i]);
+        }
+    }
 }
 
-TEST(RLEString, FromFile)
+TEST(RLEString, FromConcatRunInterruption)
 {
-    std::string path = testfiles_dir + "/rle_string_plain.txt";
-    mio::mmap_source input(path);
-    
-    rimerge::rle_string from_file(input);
-    
-    rimerge::string_type short_string = {'A', 'A', 'A', 'A', 'A', 'B', 'B', 'B'};
-    
-    EXPECT_EQ(8, from_file.size());
-    EXPECT_EQ(short_string, from_file.to_string());
-    
-    EXPECT_EQ('A', from_file[2]);
-    EXPECT_EQ('B', from_file[7]);
-    
-    EXPECT_EQ(3, from_file.rank(3, 'A'));
-    EXPECT_EQ(0, from_file.rank(3, 'B'));
-    
-    EXPECT_EQ(7, from_file.select(2, 'B'));
+    std::string path = testfiles_dir + "/test_cnct.seq";
+    rimerge::RLEString::RLEncoderMerger encoders(path, 2);
+
+    rimerge::string_type string_1 = {'A','A','A','G','C','A','A','T','T','T','T','T','T','A','A','G','G','A','A','A'};
+    rimerge::string_type string_2 = {'G','A','A','G','C','A','A','T','T','T','T','T','T','A','A','G','G','A','A','A'};
+
+    rimerge::string_type string;
+    string.reserve(string_1.size() + string_2.size());
+    string.insert(string.end(), string_1.begin(), string_1.end());
+    string.insert(string.end(), string_2.begin(), string_2.end());
+
+    rimerge::RLEString::RLEncoder& encoder_1 = encoders.get_encoder(0);
+    for (auto e : string_1)
+    { encoder_1(e); }
+
+    rimerge::RLEString::RLEncoder& encoder_2 = encoders.get_encoder(1);
+    for (auto e : string_2)
+    { encoder_2(e); }
+
+    encoders.close();
+
+    rimerge::RLEString rle_string;
+    rle_string.load(testfiles_dir + "/test_cnct.seq");
+
+    EXPECT_EQ(string.size(), rle_string.size());
+    for (std::size_t i = 0; i < string.size(); i++)
+    {
+        EXPECT_EQ(string[i], rle_string[i]);
+    }
+}
+
+TEST(RLEString, FromConcatNoRunInterruption)
+{
+    std::string path = testfiles_dir + "/test_cnct.seq";
+    rimerge::RLEString::RLEncoderMerger encoders(path, 2);
+
+    rimerge::string_type string_1 = {'A','A','A','G','C','A','A','T','T','T','T','T','T','A','A','G','G','A','A','A'};
+    rimerge::string_type string_2 = {'A','A','A','G','C','A','A','T','T','T','T','T','T','A','A','G','G','A','A','A'};
+
+    rimerge::string_type string;
+    string.reserve(string_1.size() + string_2.size());
+    string.insert(string.end(), string_1.begin(), string_1.end());
+    string.insert(string.end(), string_2.begin(), string_2.end());
+
+    rimerge::RLEString::RLEncoder& encoder_1 = encoders.get_encoder(0);
+    for (auto e : string_1)
+    { encoder_1(e); }
+
+    rimerge::RLEString::RLEncoder& encoder_2 = encoders.get_encoder(1);
+    for (auto e : string_2)
+    { encoder_2(e); }
+
+    encoders.close();
+
+    rimerge::RLEString rle_string;
+    rle_string.load(testfiles_dir + "/test_cnct.seq");
+
+    EXPECT_EQ(string.size(), rle_string.size());
+    for (std::size_t i = 0; i < string.size(); i++)
+    {
+        EXPECT_EQ(string[i], rle_string[i]);
+    }
+}
+
+TEST(RLEString, RandomConcat)
+{
+    for (rimerge::size_type r = 0; r < 10; r++)
+    {
+        std::string path = testfiles_dir + "/rnd_cnct.seq";
+        rimerge::RLEString::RLEncoderMerger encoders(path, 2);
+
+        rimerge::string_type string_1 = random_string(1000);
+        rimerge::string_type string_2 = random_string(100);
+
+        rimerge::string_type string;
+        string.reserve(string_1.size() + string_2.size());
+        string.insert(string.end(), string_1.begin(), string_1.end());
+        string.insert(string.end(), string_2.begin(), string_2.end());
+
+        rimerge::RLEString::RLEncoder& encoder_1 = encoders.get_encoder(0);
+        for (auto e : string_1)
+        { encoder_1(e); }
+
+        rimerge::RLEString::RLEncoder& encoder_2 = encoders.get_encoder(1);
+        for (auto e : string_2)
+        { encoder_2(e); }
+
+        encoders.close();
+
+        rimerge::RLEString rle_string;
+        rle_string.load(testfiles_dir + "/rnd_cnct.seq");
+
+        EXPECT_EQ(string.size(), rle_string.size());
+        for (std::size_t i = 0; i < string.size(); i++)
+        {
+            EXPECT_EQ(string[i], rle_string[i]);
+        }
+    }
+
+}
+
+TEST(RLEString, RunCache_1)
+{
+    rimerge::string_type string = {'A','A','A','G','C','A','A','T','T','T','T','T','T','A','A','G','G','A','A','A'};
+    rimerge::RLEString rle_string(string);
+
+    rimerge::RLEString::RunCache cache(rle_string);
+
+    for (std::size_t i = 0; i < string.size(); i++)
+    {
+        EXPECT_EQ(string[i], cache[i]);
+    }
+}
+
+TEST(RLEString, RunCache_2)
+{
+    rimerge::string_type string = {'A', 'G', 'C', 'A', 'T', 'A', 'G', 'A'};
+    rimerge::RLEString rle_string(string);
+
+    rimerge::RLEString::RunCache cache(rle_string);
+
+    for (std::size_t i = 0; i < string.size(); i++)
+    {
+        EXPECT_EQ(string[i], cache[i]);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -118,100 +252,28 @@ TEST(Alphabet, ThreeCharacters)
     alphabet.update('A');
     alphabet.update('C');
     alphabet.update('G');
-    
+
     alphabet.init();
-    
+
     EXPECT_EQ(3, alphabet.sigma());
-    
+
     EXPECT_EQ('A', alphabet.previous('C'));
     EXPECT_EQ('C', alphabet.previous('G'));
     EXPECT_EQ(rimerge::STRING_TERMINATOR, alphabet.previous('A'));
-    
+
     EXPECT_EQ('C', alphabet.following('A'));
     EXPECT_EQ('G', alphabet.following('C'));
     EXPECT_EQ(rimerge::STRING_TERMINATOR, alphabet.following('G'));
 }
 
-TEST(Rindex, EmptyConstructor)
-{
-    rimerge::rindex empty_index;
-    
-    EXPECT_EQ(0, empty_index.size());
-    EXPECT_EQ(0, empty_index.sigma());
-    EXPECT_EQ(0, empty_index.runs());
-}
-
-TEST(Rindex, FromFilesShort)
-{
-    mio::mmap_source bwt(testfiles_dir + "/test.bwt");
-    mio::mmap_source ssa(testfiles_dir + "/test.ssa");
-    mio::mmap_source esa(testfiles_dir + "/test.esa");
-    
-    rimerge::rindex index((rimerge::byte_type*) bwt.data(), bwt.size(),
-                          (rimerge::byte_type*) ssa.data(), ssa.size(),
-                          (rimerge::byte_type*) esa.data(), esa.size());
-    
-    EXPECT_EQ(27, index.size());
-}
-
-TEST(Rindex, FromFilesLong)
-{
-    mio::mmap_source bwt(testfiles_dir + "/long.bwt");
-    mio::mmap_source ssa(testfiles_dir + "/long.ssa");
-    mio::mmap_source esa(testfiles_dir + "/long.esa");
-    
-    rimerge::rindex index((rimerge::byte_type*) bwt.data(), bwt.size(),
-                          (rimerge::byte_type*) ssa.data(), ssa.size(),
-                          (rimerge::byte_type*) esa.data(), esa.size());
-    
-    EXPECT_EQ(755, index.size());
-    EXPECT_EQ(5, index.sequences());
-}
-
-TEST(Rindex, RindexGeneratorConstructor)
-{
-    rimerge::testing::rindex_generator generator;
-    rimerge::rindex index = generator.get();
-    
-    EXPECT_EQ(27, index.bwt().size());
-    EXPECT_EQ(3, index.sequences());
-}
-
-TEST(Rindex, LFMapping)
-{
-    rimerge::testing::rindex_generator generator;
-    rimerge::rindex index = generator.get();
-    
-    EXPECT_EQ(3, index.LF(0));
-    EXPECT_EQ(12, index.LF(26));
-    EXPECT_EQ(13, index.LF(7));
-}
-
-TEST(Rindex, LFMappingRange)
-{
-    rimerge::testing::rindex_generator generator;
-    rimerge::rindex index = generator.get();
-    
-    rimerge::range_type range = index.full_range();
-    rimerge::range_type new_range = index.LF(range, 'T');
-    
-    EXPECT_EQ(rimerge::range_type(19, 26), new_range); // add more
-}
-
-TEST(Rindex, FLMapping)
-{
-    rimerge::testing::rindex_generator generator;
-    rimerge::rindex index = generator.get();
-    
-    EXPECT_EQ(17, index.FL(0));
-    EXPECT_EQ(24, index.FL(26));
-    EXPECT_EQ(7, index.FL(13));
-    
-    EXPECT_EQ(17, index.FL(0, rimerge::DATA_TERMINATOR));
-    EXPECT_EQ(24, index.FL(26, 'T'));
-    EXPECT_EQ(7, index.FL(13, 'C'));
-}
-
 //------------------------------------------------------------------------------
+
+TEST(RIndex, Inheritance)
+{
+    rimerge::RIndex<rimerge::RIndexRLE, rimerge::RLEString> index;
+
+    EXPECT_EQ(std::string("RIndexRLE"), std::string(index.name()));
+}
+
 
 } // namespace

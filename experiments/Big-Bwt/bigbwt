@@ -54,12 +54,12 @@ def main():
   if(args.S and (args.s or args.e)):
     print("You can either compute the full SA or a sample of it, not both. Exiting...")
     return
-    
+
   logfile_name = args.input + ".log"
   print("Sending logging messages to file:", logfile_name)
-  with open(logfile_name,"a") as logfile:  
-    
-    # ---------- parsing of the input file 
+  with open(logfile_name,"a") as logfile:
+
+    # ---------- parsing of the input file
     start0 = start = time.time()
     if args.t>0:
       command = "{exe} {file} -w {wsize} -p {modulus} -t {th}".format(exe = parse_exe,
@@ -75,18 +75,18 @@ def main():
       return
     print("Elapsed time: {0:.4f}".format(time.time()-start))
     if args.parsing:
-      # delete temporary parsing files 
+      # delete temporary parsing files
       command = "rm -f {file}.parse_old {file}.last {file}.occ".format(file=args.input)
       if(execute_command(command,logfile,logfile_name)!=True):
         return
-      print("==== Stopping after the parsing phase as requested")      
+      print("==== Stopping after the parsing phase as requested")
       return
     elif args.compress:
-      # save parsing files 
+      # save parsing files
       start = time.time()
       command = "tar -cJf {file}.parse.txz {file}.parse {file}.dicz".format(file=args.input)
       print("==== Compressing. Command:", command)
-      if(execute_command(command,logfile,logfile_name,env={"XZ_OPT":"-9"})!=True): 
+      if(execute_command(command,logfile,logfile_name,env={"XZ_OPT":"-9"})!=True):
         return
       print("Elapsed time: {0:.4f}".format(time.time()-start))
       delete_temp_files(args,logfile,logfile_name)
@@ -100,7 +100,7 @@ def main():
       print("Sorry, the parse contains %d words" %  parse_size )
       print("which is more than my current limit 2^32-2")
       print("Please re-run the program with a larger modulus (currently %d)" % args.mod)
-      sys.exit(1)  
+      sys.exit(1)
     elif(parse_size >=  (2**31-1) ):
       command = "{exe} {file}".format(exe = parsebwt_exe64, file=args.input)
     else:
@@ -110,18 +110,18 @@ def main():
     print("==== Computing BWT of parsing. Command:", command)
     if(execute_command(command,logfile,logfile_name)!=True):
       return
-    print("Elapsed time: {0:.4f}".format(time.time()-start));      
-    
-    # ----------- compute final BWT using dictionary and BWT of parse    
-    start = time.time()     
+    print("Elapsed time: {0:.4f}".format(time.time()-start));
+
+    # ----------- compute final BWT using dictionary and BWT of parse
+    start = time.time()
     if(os.path.getsize(args.input+".dict") >=  (2**31-4) ):
       # 64 bit version with and without threads
       if args.t>0 and args.s==False and args.e==False:
         command = "{exe} -N {N} -w {wsize} {file} -t {th}".format(
                 exe = pfbwt_exe64, wsize=args.wsize, file=args.input, th=args.t, N=args.N)
       else:
-        command = "{exe} -N {N} -w {wsize} {file}".format( 
-                exe = pfbwtNT_exe64, wsize=args.wsize, file=args.input, N=args.N)        
+        command = "{exe} -N {N} -w {wsize} {file}".format(
+                exe = pfbwtNT_exe64, wsize=args.wsize, file=args.input, N=args.N)
     else:  # 32 bit version
       if args.t>0 and args.s==False and args.e==False:
         command = "{exe} -N {N} -w {wsize} {file} -t {th}".format(exe = pfbwt_exe,
@@ -132,12 +132,12 @@ def main():
     if args.s: command += " -s"
     if args.e: command += " -e"
     if args.S: command += " -S"
-    
+
     print("==== Computing final BWT. Command:", command)
     if(execute_command(command,logfile,logfile_name)!=True):
       return
-    print("Elapsed time: {0:.4f}".format(time.time()-start))      
-    print("Total construction time: {0:.4f}".format(time.time()-start0))      
+    print("Elapsed time: {0:.4f}".format(time.time()-start))
+    print("Total construction time: {0:.4f}".format(time.time()-start0))
 
     # ---- compute sha256sum
     if args.sum:
@@ -152,7 +152,7 @@ def main():
       if args.e:
         digest = file_digest(args.input +".esa",logfile)
         print("ESA {exe}: {digest}".format(exe=shasum_exe, digest=digest))
- 
+
     # ---- delete intermediate files
     delete_temp_files(args,logfile,logfile_name)
 
@@ -163,11 +163,11 @@ def main():
         command = "{exe} {file}".format(exe = bwt_exe64, file=args.input)
       else:
         command = "{exe} {file}".format(exe = bwt_exe, file=args.input)
-      print("==== Computing BWT using sacak. Command:", command)       
+      print("==== Computing BWT using sacak. Command:", command)
       if(execute_command(command,logfile,logfile_name)!=True):
-        return   
-      print("Elapsed time: {0:.4f}".format(time.time()-start));      
-      command = "cmp {file}.bwt {file}.Bwt".format(file=args.input); 
+        return
+      print("Elapsed time: {0:.4f}".format(time.time()-start));
+      command = "cmp {file}.bwt {file}.Bwt".format(file=args.input);
       print("==== Comparing BWTs. Command:", command);
       if(execute_command(command,logfile,logfile_name)):
         print("BWTs match");
@@ -179,7 +179,7 @@ def main():
 
 # delete intermediate files
 def delete_temp_files(args,logfile,logfile_name):
-    if args.k==False:  
+    if args.k==False:
       print("==== Deleting temporary files.") # no need to show the command
       command = "rm -f {file}.parse {file}.parse_old {file}.last {file}.bwlast {file}.dict {file}.ilist {file}.occ".format(file=args.input)
       if(execute_command(command,logfile,logfile_name)!=True):
@@ -198,15 +198,15 @@ def delete_temp_files(args,logfile,logfile_name):
             return
 
 
-# compute hash digest for a file 
+# compute hash digest for a file
 def file_digest(name,logfile):
     try:
       hash_command = "{exe} {infile}".format(exe=shasum_exe, infile=name)
       hashsum = subprocess.check_output(hash_command.split(),stderr=logfile)
       hashsum = hashsum.decode("utf-8").split()[0]
     except:
-      hashsum = "Error!" 
-    return hashsum  
+      hashsum = "Error!"
+    return hashsum
 
 # execute command: return True is everything OK, False otherwise
 def execute_command(command,logfile,logfile_name,env=None):

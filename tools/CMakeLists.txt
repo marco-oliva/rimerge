@@ -1,28 +1,57 @@
 ################################################################################
-# Temporary main
+# Rimerge
 
 link_directories(/usr/local/lib)
 
-add_executable(main main.cpp)
-add_dependencies(main rimerge CLI11 mio sdsl)
-target_include_directories(main PRIVATE ${rimerge-includes})
-target_link_libraries(main rimerge ${rimerge-libs} omp)
+add_executable(rimerge.x main.cpp)
+add_dependencies(rimerge.x bigbwt)
+target_include_directories(rimerge.x PRIVATE ${rimerge-includes})
+target_link_libraries(rimerge.x rimerge ${rimerge-libs})
 
-target_compile_features(main PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
+target_compile_features(rimerge.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
 
 ################################################################################
 # Concatenate FA
 
-add_executable(cfa concat_fa.cpp)
-target_include_directories(cfa PRIVATE ${rimerge-includes})
-target_link_libraries(cfa rimerge ${rimerge-libs} stdc++fs)
-target_compile_features(cfa PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
+add_executable(cfa.x concat_fa.cpp)
+target_include_directories(cfa.x PRIVATE ${rimerge-includes})
+target_link_libraries(cfa.x rimerge ${rimerge-libs} z)
+target_compile_features(cfa.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
 
 ################################################################################
-# HiperGator specific install
+# Big-BWT to saes
 
-if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    install(TARGETS main cfa CONFIGURATIONS Release RUNTIME DESTINATION /ufrc/boucher/marco.oliva/data/r-index/tools)
-    add_custom_command(TARGET main POST_BUILD COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target install)
-    add_custom_command(TARGET cfa POST_BUILD COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target install)
-endif()
+add_executable(estw.x estw.cpp)
+target_include_directories(estw.x PRIVATE ${rimerge-includes})
+target_link_libraries(estw.x rimerge ${rimerge-libs})
+target_compile_features(estw.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
+
+################################################################################
+# Check
+
+add_executable(check.x check_structure.cpp)
+target_include_directories(check.x PRIVATE ${rimerge-includes})
+target_link_libraries(check.x rimerge ${rimerge-libs})
+target_compile_features(check.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
+
+################################################################################
+# plain to rle
+
+add_executable(rle.x rle.cpp)
+target_include_directories(rle.x PRIVATE ${rimerge-includes})
+target_link_libraries(rle.x rimerge ${rimerge-libs})
+target_compile_features(rle.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
+
+
+################################################################################
+# stats
+
+add_executable(stats.x stats.cpp)
+target_include_directories(stats.x PRIVATE ${rimerge-includes})
+target_link_libraries(stats.x rimerge ${rimerge-libs})
+target_compile_features(stats.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
+
+################################################################################
+# Install
+install(TARGETS rimerge.x stats.x rle.x check.x estw.x rimerge.x cfa.x  RUNTIME DESTINATION ${INSTALL_PATH})
+

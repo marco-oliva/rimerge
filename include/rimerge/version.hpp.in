@@ -15,8 +15,8 @@ struct Version
     static constexpr char RIMERGE_GIT_BRANCH[] = "@GIT_BRANCH@";
     static constexpr char RIMERGE_GIT_COMMIT_HASH[] = "@GIT_COMMIT_HASH@";
     static constexpr size_type RIMERGE_MAJOR = 0;
-    static constexpr size_type RIMERGE_MINOR = 3;
-    static constexpr size_type RIMERGE_PATCH = 7;
+    static constexpr size_type RIMERGE_MINOR = 4;
+    static constexpr size_type RIMERGE_PATCH = 3;
     
     static void print()
     {

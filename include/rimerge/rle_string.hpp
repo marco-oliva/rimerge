@@ -1,13 +1,16 @@
 //
-//  rindex.hpp
+//  rle_string.hpp
 //
-//  Copyright 2020 Nicola Prezza. All rights reserved.
+//  Copyright 2020 Marco Oliva. All rights reserved.
+//  Run length encoded string heavly inspired by Nicola Prezza's implementation.
+//  github to nicola's implementation...
 //
 
 #ifndef rle_string_hpp
 #define rle_string_hpp
 
 #include <rimerge/utils.hpp>
+#include <rimerge/bitvector.hpp>
 
 namespace rimerge
 {
@@ -21,44 +24,58 @@ public:
     
     huff_string() = default;
     
-    huff_string(string_type &s)
+    huff_string(string_type& s)
     {
         s.push_back(IMPL_TERMINATOR);
         construct_im(wt, (const char*) s.data(), 1);
-        assert(wt.size()==s.size() - 1);
+        assert(wt.size() == s.size() - 1);
     }
     
-    byte_type operator[](size_type i) const
+    void
+    init(string_type& s)
     {
-        assert(i<wt.size());
+        s.push_back(IMPL_TERMINATOR);
+        construct_im(wt, (const char*) s.data(), 1);
+        assert(wt.size() == s.size() - 1);
+    }
+    
+    byte_type
+    operator[](size_type i) const
+    {
+        assert(i < wt.size());
         return wt[i];
     }
     
-    size_type size() const
+    size_type
+    size() const
     {
         return wt.size();
     }
     
-    size_type rank(size_type i, byte_type c) const
+    size_type
+    rank(size_type i, byte_type c) const
     {
-        assert(i<=wt.size());
-        return wt.rank(i,c);
+        assert(i <= wt.size());
+        return wt.rank(i, c);
     }
     
     // position of i-th character c. i starts from 0!
-    size_type select(size_type i, byte_type c) const
+    size_type
+    select(size_type i, byte_type c) const
     {
-        return wt.select(i+1,c);
+        return wt.select(i + 1, c);
     }
     
     // serialize the structure to the ostream
-    size_type serialize(std::ostream& out) const
+    size_type
+    serialize(std::ostream& out) const
     {
         return wt.serialize(out);
     }
     
     // load the structure from the istream
-    void load(std::istream& in)
+    void
+    load(std::istream& in)
     {
         wt.load(in);
     }
@@ -68,90 +85,313 @@ private:
     sdsl::wt_huff<> wt;
 };
 
-
 //------------------------------------------------------------------------------
 
-// Bitvector
-class bitvector
+struct RunType
 {
-public:
-    
-    bitvector() = default;
-    
-    /// Constructor, from a sdsl::bit_vector
-    bitvector(const sdsl::bit_vector& in);
-    
-    /// Constructor, from a std::vector<bool>
-    bitvector(const std::vector<bool>& in);
-    
-    bitvector& operator= (const bitvector& other);
-    
-    /// Subscript oprator, pos must be < size
-    bool operator[](const size_type pos) const;
-    
-    /// At, alias for subscript operator
-    bool at(const size_type pos) const;
-    
-    /// Rank_1, i must be < size
-    size_type rank(const size_type i) const;
-    
-    /// Select_1, position og the i-th one in the vector
-    size_type select(const size_type i) const;
-    
-    /// Predecessor, i must have a predecessor
-    size_type predecessor(const size_type i) const;
-    
-    /// Predecessor of i (position i excluded) in rank pace. i must have a predecessor
-    size_type predecessor_rank(const size_type i) const;
-    
-    size_type predecessor_rank_circular(const size_type i) const;
-    
-    /// Length of the i-th gap. Includes the leading 1
-    size_type gap_at(const size_type i) const;
-    
-    /// Size
-    size_type size() const;
-    
-    /// Number of 1s
-    size_type number_of_1() const;
-    
-    /// Serialize to output
-    size_type serialize(std::ostream& out) const;
-    
-    /// Load from input
-    void load(std::istream& in);
-
-
-private:
-    
-    void init_rank_and_select_structures()
-    {
-        rank1   = vector_type::rank_1_type(&vector);
-        select1 = vector_type::select_1_type(&vector);
-    }
-    
-    size_type size_ = 0;
-    
-    vector_type                  vector;
-    vector_type::rank_1_type      rank1;
-    vector_type::select_1_type  select1;
-    
+    size_type offset = invalid_value(); // string position of start char
+    size_type length = 0;
+    byte_type charachter = '\0';
 };
 
+class RunTraits
+{
+public:
+    
+    static byte_type charachter(const RunType& run) { return run.charachter; }
+    static size_type length(const RunType& run) { return run.length; }
+    static size_type start(const RunType& run) { return run.offset; }
+    static size_type end(const RunType& run) { return run.offset + run.length - 1; }
+    static bool start(const RunType& run, size_type string_position) { return string_position == run.offset;}
+    static bool end(const RunType& run, size_type string_position) { return string_position == run.offset + run.length;}
+    static bool equal(const RunType& left, const RunType& right) { return left.offset == right.offset; }
+};
+
+
 //------------------------------------------------------------------------------
 
-class rle_string
+
+class RLEString
 {
 
 public:
+
+//------------------------------------------------------------------------------
+
+    class Metadata
+    {
+    private:
+        
+        bool closed = false;
+        bool reading = false, writing = false;
+        
+        std::string file_path;
     
-    void construct(byte_type* start, size_type size, size_type block_size);
+    public:
+        
+        size_type size = 0;
+        size_type runs = 0;
+        
+        std::array<size_type, alphabet_max_size()> size_per_char = {0};
+        std::array<size_type, alphabet_max_size()> runs_per_char = {0};
+        
+        struct read_tag  {};
+        struct write_tag {};
+        
+        Metadata(std::string path, read_tag tag) { init(path, tag); }
+        Metadata(std::string path, write_tag tag) { init(path, tag); }
+        Metadata() {}
+        ~Metadata() {  if (not closed) close(); };
+        
+        void init(std::string path, read_tag tag);
+        void init(std::string path, write_tag tag);
     
-    rle_string() = default;
+        void close();
+    };
+
+//------------------------------------------------------------------------------
     
-    rle_string(mio::mmap_source& input, size_type B = 2);
+    class RLEncoder
+    {
+    public:
+        
+        using packed_type = uint32_t;
     
-    rle_string(string_type& input, size_type B = 2);
+        constexpr static packed_type LENGTH_BITS = 3 * 8;
+        constexpr static packed_type LENGTH_MASK = 0x7FFFFF00;
+        constexpr static packed_type NEXT_RECORD = 0x80000000;
+        constexpr static packed_type MAX_LEN     = 0x7FFFFF;
+    
+        constexpr static packed_type CHAR_BITS   = 1 * 8;
+        constexpr static packed_type CHAR_MASK   = 0xFF;
+    
+    public:
+        std::string out_path;
+        std::ofstream out_stream;
+        bool closed = false;
+        
+        size_type curr_run_length = 0;
+        byte_type curr_run_char   = 0;
+        
+        void append(byte_type c);
+        
+        void write(byte_type c, size_type len, std::ofstream& out);
+    
+    public:
+    
+        // Metadata
+        Metadata metadata;
+        
+        RLEncoder(std::string path) { init(path); }
+        RLEncoder() {}
+        ~RLEncoder() { if (not closed) close(); }
+        
+        void init(std::string& path)
+        {
+            out_path = path;
+            out_stream.open(path, std::ios::binary);
+            metadata.init(path + ".meta", Metadata::write_tag());
+        }
+        
+        void operator()(byte_type c) { assert(not closed); /*if (c == '\0') { c = '$'; }*/ append(c); }
+        void operator()(byte_type c, size_type len) { while (len > 0) { this->operator()(c); len -= 1; } }
+        
+        void close();
+    };
+    
+    class RLEDecoder
+    {
+    
+    private:
+        
+        using packed_type = RLEncoder::packed_type;
+        std::ifstream in_stream;
+        
+        size_type runs_served = 0;
+        
+    public:
+    
+        // Metadata
+        Metadata metadata;
+        
+        RLEDecoder(std::string path);
+        
+        RunType next();
+        bool end();
+        
+    };
+    
+    class RLEncoderMerger
+    {
+    private:
+    
+        std::array<size_type, alphabet_max_size()> runs_per_char = {0};
+        size_type size = 0;
+        size_type runs = 0;
+    
+        using packed_type = RLEncoder::packed_type;
+        
+        std::string out_path;
+        
+        std::vector<std::pair<std::string, RLEncoder>> encoders;
+        bool merged = false;
+        
+        void merge();
+        
+    public:
+        
+        Metadata metadata;
+    
+        RLEncoderMerger(std::string& path, size_type n) : out_path(path), encoders(n), metadata(path + ".meta", Metadata::write_tag())
+        {
+            for (auto& encoder : encoders)
+            {
+                encoder.first = TempFile::getName("rle");
+                encoder.second.init(encoder.first);
+            }
+        }
+        
+        RLEncoder& get_encoder(size_type i)
+        {
+            assert(i < encoders.size());
+            return encoders[i].second;
+        }
+        
+        void close() { if (not merged) {merge();}  metadata.close(); }
+        
+        ~RLEncoderMerger()
+        {
+            close();
+            for (auto& e: encoders)
+            {
+                std::string r_meta = e.first + ".meta";
+                if (not std::remove(r_meta.c_str())) spdlog::info("can't remove: {}", r_meta);
+            }
+        }
+    
+    };
+
+//------------------------------------------------------------------------------
+    
+    class Accessor
+    {
+    private:
+        
+        static constexpr size_type cache_size = 8;
+        size_type cache_it;
+        std::array<std::pair<size_type, byte_type>, cache_size> cache;
+        
+        const RLEString& string;
+        
+    public:
+        
+        Accessor(const RLEString& s) :string(s), cache_it(0)
+        {
+            for (size_type i = 0; i < cache_size; i++)
+            {
+                cache[i] = std::make_pair(invalid_value(), '\0');
+            }
+        }
+        
+        byte_type operator[](size_type i);
+    };
+
+//------------------------------------------------------------------------------
+    
+    class RunIterator
+    {
+    
+    private:
+    
+        const RLEString& string;
+        RunType current_run;
+        size_type r_pos;
+        
+        void read()
+        {
+            std::pair<size_type, size_type> run = string.run_range(r_pos);
+            current_run.offset = run.first;
+            current_run.length = run.second - run.first + 1;
+            current_run.charachter = string.run_heads[r_pos];
+        }
+    
+    public:
+        
+        RunIterator(const RLEString& rle_string) :string(rle_string), r_pos(0) { read(); }
+        RunIterator(const RLEString& rle_string, size_type i) :string(rle_string)
+        {
+            r_pos = string.run_of_position(i);
+            read();
+            if (current_run.offset < i) current_run.offset = i;
+        }
+    
+        void operator++() { r_pos += 1; read(); }
+        const RunType& operator*() const { return current_run; }
+        
+        bool end() { return r_pos >= string.number_of_runs(); }
+    };
+    
+//------------------------------------------------------------------------------
+    
+    class RunCache
+    {
+    
+    private:
+    
+        static constexpr size_type cache_size = 2;
+        size_type cache_it;
+        std::array<RunType, cache_size> cache;
+        const RLEString& string;
+    
+        void read(size_type i, RunType& out)
+        {
+            size_type r_pos = string.run_of_position(i);
+            std::pair<size_type, size_type> run = string.run_range(r_pos);
+            out.offset = run.first;
+            out.length = run.second - run.first + 1;
+            out.charachter = string.run_heads[r_pos];
+        }
+        
+        
+    public:
+    
+        RunCache(const RLEString& s) :string(s), cache_it(0) {}
+        
+        byte_type operator[](size_type pos)
+        {
+    
+            for (size_type i = 0; i < cache_size; i++)
+            {
+                if ( pos >= RunTraits::start(cache[i]) and pos <= RunTraits::end(cache[i]))
+                {
+                    return RunTraits::charachter(cache[i]);
+                }
+            }
+            
+            // Get next run
+            read(pos, cache[cache_it % cache_size]);
+            char out = RunTraits::charachter(cache[cache_it % cache_size]);
+            cache_it++;
+            
+            return out;
+        }
+        
+    };
+    
+//------------------------------------------------------------------------------
+
+    RLEString() = default;
+    RLEString(string_type& data);
+    
+    ~RLEString()
+    {
+        if(Verbosity::level >= Verbosity::EXTENDED)
+        {
+            if (this->R != 0)
+            spdlog::info("rimerge::RLEString::~RLEString: size {}GB",
+                         inGigabytes((this->R) * (2 + std::log(this->n / this->R)) * 2));
+        }
+    }
     
     byte_type operator[](size_type i) const;
     
@@ -180,11 +420,8 @@ public:
     
     size_type number_of_runs() const;
     
-    // serialize the structure to the ostream
-    size_type serialize(std::ostream& out) const;
-    
     // load the structure from the istream
-    void load(std::istream& in);
+    void load(std::string path);
     
     string_type to_string() const;
     
@@ -201,7 +438,7 @@ public:
      */
     size_type closest_run_break(range_type rn, byte_type c) const;
     
-    friend class rindex;
+    friend class RIndexRLEN;
 
 private:
     
@@ -209,12 +446,12 @@ private:
     std::pair<size_type,size_type> run_of(size_type i) const;
     
     // block size: bitvector 'runs' has R/B bits set (R being number of runs)
-    std::size_t B = 2;
+    std::size_t B = 1;
     
     bitvector runs;
     
     // for each letter, its runs stored contiguously
-    std::vector<bitvector> runs_per_letter;
+    std::array<bitvector, 256> runs_per_letter;
     
     // store run heads in a compressed string supporting access/rank
     huff_string run_heads;
@@ -222,6 +459,8 @@ private:
     // text length and number of runs
     std::size_t n = 0;
     std::size_t R = 0;
+    
+    friend class RIndexRLE;
     
 };
 }

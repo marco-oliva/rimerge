@@ -561,6 +561,11 @@ public:
     std::vector<std::vector<rank_type>> pos_buffers;
     std::vector<buffer_type>            thread_buffers;
     
+    //////////////////////////////
+    std::vector<rank_type> max_values;
+    std::vector<rank_type> min_values;
+    //////////////////////////////
+    
     // Global merge buffers.
     std::mutex               buffer_lock;
     std::vector<buffer_type> merge_buffers;
@@ -579,6 +584,11 @@ public:
     
     void insert(rank_type element, size_type thread)
     {
+        //////////////////////////////
+        size_type range = Range::bin(element, job_ranges);
+        this->max_values[range] = (element > max_values[range]) ? element : max_values[range];
+        this->min_values[range] = (element < min_values[range]) ? element : min_values[range];
+        //////////////////////////////
         this->pos_buffers[thread].push_back(element);
         if(this->pos_buffers[thread].size() >= this->parameters.posBufferPositions())
         {
