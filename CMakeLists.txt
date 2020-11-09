@@ -197,10 +197,10 @@ target_include_directories(bwtmerge_tests PRIVATE "${gtest-include}" "${rimerge-
 add_dependencies(bwtmerge_tests rimerge gtest)
 target_link_libraries(bwtmerge_tests rimerge ${rimerge-libs} ${gtest-lib})
 
-add_executable(ribenchmarks tests/benchmarks.cpp)
-target_include_directories(ribenchmarks PRIVATE "${gbench-include}" "${rimerge-includes}")
-target_link_libraries(ribenchmarks rimerge "${rimerge-libs}" "${gbench-lib}")
-add_dependencies(ribenchmarks rimerge gbench)
+#add_executable(ribenchmarks tests/benchmarks.cpp)
+#target_include_directories(ribenchmarks PRIVATE "${gbench-include}" "${rimerge-includes}")
+#target_link_libraries(ribenchmarks rimerge "${rimerge-libs}" "${gbench-lib}")
+#add_dependencies(ribenchmarks rimerge gbench)
 
 ################################################################################
 # Install
