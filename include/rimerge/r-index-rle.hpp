@@ -1,8 +1,10 @@
 //
 //  r-index-rled.hpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
+//  Inspired from https://github.com/nicolaprezza/r-index
+//  Gagie T, Navarro G, Prezza N. Optimal-time text indexing in BWT-runs bounded space. In Proceedings of the Twenty-Ninth Annual ACM-SIAM Symposium on Discrete Algorithms, SODA 2018, New Orleans, NA, USA, January 7-10 2017.
 //
+
 
 #ifndef r_index_rle_hpp
 #define r_index_rle_hpp

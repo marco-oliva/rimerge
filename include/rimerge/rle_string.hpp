@@ -1,9 +1,8 @@
 //
 //  rle_string.hpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
 //  Run length encoded string heavly inspired by Nicola Prezza's implementation.
-//  github to nicola's implementation...
+//  https://github.com/nicolaprezza/r-index
 //
 
 #ifndef rle_string_hpp
