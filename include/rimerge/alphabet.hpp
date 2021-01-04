@@ -34,6 +34,7 @@ private:
     std::vector<bool> used_chars = std::vector<bool>(256,false);
     bool initialized = false;
     bitvector alphabet;
+    byte_type used_terminator = DATA_TERMINATOR;
     
 };
 

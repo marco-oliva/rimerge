@@ -14,7 +14,24 @@
 namespace
 {
 
-std::string testfiles_dir = "/Users/marco/Repositories/papers/r-merge/tests/files";
+std::string testfiles_dir = "../../tests/files";
+
+rimerge::string_type random_string(rimerge::size_type length)
+{
+    srand((rimerge::size_type) rimerge::readTimer());
+    
+    // See: https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
+    auto randchar = []() -> char
+    {
+        const rimerge::byte_type charset[] = "ACGTN";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    rimerge::string_type str(length,0);
+    std::generate_n( str.begin(), length, randchar );
+    str.push_back('$');
+    return str;
+}
 
 //------------------------------------------------------------------------------
 
@@ -53,23 +70,6 @@ TEST(Bitvector, Select)
     EXPECT_EQ(2, bitvector.select(0));
     EXPECT_EQ(7, bitvector.select(3));
     EXPECT_EQ(11, bitvector.select(5));
-}
-
-rimerge::string_type random_string(rimerge::size_type length)
-{
-    srand((rimerge::size_type) rimerge::readTimer());
-
-    // See: https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
-    auto randchar = []() -> char
-    {
-        const rimerge::byte_type charset[] = "ACGTN";
-        const size_t max_index = (sizeof(charset) - 1);
-        return charset[ rand() % max_index ];
-    };
-    rimerge::string_type str(length,0);
-    std::generate_n( str.begin(), length, randchar );
-    str.push_back('$');
-    return str;
 }
 
 TEST(RLEString, FromEncoder)
@@ -259,11 +259,11 @@ TEST(Alphabet, ThreeCharacters)
 
     EXPECT_EQ('A', alphabet.previous('C'));
     EXPECT_EQ('C', alphabet.previous('G'));
-    EXPECT_EQ(rimerge::STRING_TERMINATOR, alphabet.previous('A'));
+    EXPECT_EQ(rimerge::DATA_TERMINATOR, alphabet.previous('A'));
 
     EXPECT_EQ('C', alphabet.following('A'));
     EXPECT_EQ('G', alphabet.following('C'));
-    EXPECT_EQ(rimerge::STRING_TERMINATOR, alphabet.following('G'));
+    EXPECT_EQ(rimerge::DATA_TERMINATOR, alphabet.following('G'));
 }
 
 //------------------------------------------------------------------------------
@@ -273,6 +273,104 @@ TEST(RIndex, Inheritance)
     rimerge::RIndex<rimerge::RIndexRLE, rimerge::RLEString> index;
 
     EXPECT_EQ(std::string("RIndexRLE"), std::string(index.name()));
+}
+
+//------------------------------------------------------------------------------
+
+void
+build_csa(sdsl::csa_bitcompressed<>& out_csa, rimerge::string_type s)
+{
+    std::string tmp;
+    tmp.insert(tmp.end(), s.begin(), s.end());
+    sdsl::construct_im(out_csa, tmp.c_str(), 1);
+}
+
+void
+csa_to_ri(sdsl::csa_bitcompressed<>& in_csa, std::string out_prefix)
+{
+    rimerge::RLEString::RLEncoder encoder(testfiles_dir + "/" + out_prefix + ".rle");
+    std::ofstream samples(testfiles_dir + "/" + out_prefix + ".saes");
+    for (std::size_t i = 0; i < in_csa.size(); i++)
+    {
+        if ((i == 0 or (i == 1 or (i == in_csa.size() - 1))) or (in_csa.bwt[i] != in_csa.bwt[i - 1] or (in_csa.bwt[i] != in_csa.bwt[i + 1])))
+        {
+            rimerge::SA_samples::sample_type t = {i, in_csa[i]};
+            rimerge::SA_samples::write(t, &samples);
+        }
+        // replace 0 with data terminator
+        if (in_csa.bwt[i] != '\0') { encoder(in_csa.bwt[i]); }
+        else { encoder(rimerge::DATA_TERMINATOR); }
+        
+    }
+}
+
+template<typename I, typename BWT>
+void
+read_from_prefix(std::string prefix, rimerge::RIndex<I, BWT>& index)
+{
+    if (prefix[prefix.size() - 1] == '/') { index.init(prefix + "bwt.rle", prefix + "samples.saes"); }
+    else { index.init(prefix + ".rle", prefix + ".saes"); }
+}
+
+TEST(TwoStrings, Rimerge)
+{
+    // r-index type
+    typedef rimerge::RIndexRLE RIndexType;
+    typedef rimerge::RLEString BWTType;
+    
+    // Generate two random r-indxes
+    
+    // sequences, DATA_TERMINATOR is pushed by sdsl. (It pushes 0 and we substitute it with DATA_TERMINATOR)
+    rimerge::string_type s1, s2, sm;
+    s1 = random_string(10000); s1.pop_back(); // remove terminator
+    s2 = random_string(1000); s2.pop_back();
+    sm.insert(sm.end(), s1.begin(), s1.end());
+    sm.push_back(rimerge::STRING_TERMINATOR);
+    sm.insert(sm.end(), s2.begin(), s2.end());
+    
+    // compute bwt and samples for both sequences and for merged sequence
+    sdsl::csa_bitcompressed<> csa1, csa2, csam;
+    build_csa(csa1, s1);
+    build_csa(csa2, s2);
+    build_csa(csam, sm);
+    
+    // r-indexes on disk
+    csa_to_ri(csa1, "s1");
+    csa_to_ri(csa2, "s2");
+    
+    // Merge s1 and s2
+    rimerge::RIndex<RIndexType, BWTType> r1, r2, rm;
+    read_from_prefix(testfiles_dir + "/s1", r1);
+    read_from_prefix(testfiles_dir + "/s2", r2);
+    
+    rimerge::MergeParameters merge_parameters;
+    merge_parameters.setMergeJobs(1);
+    merge_parameters.setMergeBuffers(1);
+    merge_parameters.out_prefix = testfiles_dir + "/rm";
+    rimerge::RIndex<RIndexType, BWTType>::merge(r1, r2, merge_parameters);
+    
+    read_from_prefix(testfiles_dir + "/rm/", rm);
+    
+    // Extract sequences from bwt, inverse order since the lat char is a '\0'
+    rimerge::string_type o1 = rm.get_sequence(0);
+    rimerge::string_type o2 = rm.get_sequence(1);
+    EXPECT_EQ(s1, o1);
+    EXPECT_EQ(s2, o2);
+    
+    // Check bwt size, since we use a multistring two characters will be different
+    rimerge::string_type bwt_string = rm.bwt().to_string();
+    EXPECT_EQ(csam.bwt.size(), bwt_string.size());
+    
+    // Suffx Array Samples, structural correctness
+    std::tuple<std::vector<rimerge::size_type>, std::vector<rimerge::size_type>, std::vector<rimerge::size_type>> errors;
+    EXPECT_TRUE(rimerge::RIndexRLE::check(rm, errors));
+    
+    // Suffix Array Samples, values
+    std::vector<rimerge::SA_samples::sample_type> samples = rm.samples().get_samples();
+    for (std::size_t i = 0; i < samples.size(); i++)
+    {
+        // EXPECT_EQ(csam[samples[i].first], samples[i].second);
+    }
 }
 
 

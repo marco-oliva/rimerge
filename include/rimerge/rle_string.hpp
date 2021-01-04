@@ -189,6 +189,7 @@ public:
         {
             out_path = path;
             out_stream.open(path, std::ios::binary);
+            if (not out_stream.is_open()) { spdlog::error("Can't open {}", path); std::exit(EXIT_FAILURE); }
             metadata.init(path + ".meta", Metadata::write_tag());
         }
         

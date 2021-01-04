@@ -60,11 +60,12 @@ int main(int argc, char **argv)
     
     double reading = rimerge::readTimer();
     
-    // Read index A bwt and sufix samples, open the file as a mmap
+    // Read index A
     spdlog::info("Reading A from disk");
     read_from_prefix(a_prefix, A);
     spdlog::info("Reading A completed\nA\n\tsize: {}\n\tsequences: {}\n\tr: {}\n\tn/r: {:03.2f}", A.size(), A.sequences(), A.runs(), float(A.size())/float(A.runs()));
     
+    // Read index B
     spdlog::info("Reading B from disk");
     read_from_prefix(b_prefix, B);
     spdlog::info("Reading B completed\nB\n\tsize: {}\n\tsequences: {}\n\tr: {}\n\tn/r: {:03.2f}", B.size(), B.sequences(), B.runs(), float(B.size())/float(B.runs()));

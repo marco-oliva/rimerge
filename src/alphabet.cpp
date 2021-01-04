@@ -16,6 +16,7 @@ void
 Alphabet::update(byte_type i)
 {
     used_chars[i] = true;
+    if (i == STRING_TERMINATOR) { used_terminator = STRING_TERMINATOR; }
     
     if (initialized)
     {
@@ -37,7 +38,7 @@ Alphabet::previous(byte_type c) const
     size_type rank = alphabet.rank(c);
     
     if (rank == 0)
-        return STRING_TERMINATOR;
+        return used_terminator;
     
     return static_cast<byte_type> (alphabet.select(rank - 1));
 }
@@ -48,7 +49,7 @@ Alphabet::following(byte_type c) const
     size_type rank = alphabet.rank(c);
     
     if ((rank + 1) == sigma())
-        return STRING_TERMINATOR;
+        return used_terminator;
     
     size_type i = alphabet.select(rank + 1);
     

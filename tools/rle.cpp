@@ -58,7 +58,7 @@ int main(int argc, char **argv)
         spdlog::info("Decoding RLE");
         rimerge::RLEString::RLEDecoder decoder(d_prefix + ".rle");
 
-        std::ofstream out_file(d_prefix + ".bwt3");
+        std::ofstream out_file(d_prefix + ".bwt");
         while (not decoder.end())
         {
             rimerge::RunType run = decoder.next();

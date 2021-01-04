@@ -42,6 +42,8 @@
 
 #include <sdsl/bit_vectors.hpp>
 #include <sdsl/wavelet_trees.hpp>
+#include <sdsl/suffix_arrays.hpp>
+
 
 #include <spdlog/spdlog.h>
 
@@ -84,9 +86,13 @@ constexpr double GIGABYTE_DOUBLE = KILOBYTE_DOUBLE * MEGABYTE_DOUBLE;
 constexpr size_type MILLION      = 1000000;
 constexpr size_type BILLION      = 1000 * MILLION;
 
+//------------------------------------------------------------------------------
+
 constexpr byte_type IMPL_TERMINATOR   = 0;
 constexpr byte_type DATA_TERMINATOR   = 1;
 constexpr byte_type STRING_TERMINATOR = '$';
+
+bool is_terminator(byte_type c);
 
 //------------------------------------------------------------------------------
 
@@ -97,6 +103,8 @@ typedef sdsl::int_vector_buffer<0> text_buffer_type;
 
 typedef sdsl::sd_vector<>       vector_type;
 typedef std::vector<byte_type>  string_type;
+
+string_type to_string_type(const char* s);
 
 //------------------------------------------------------------------------------
 

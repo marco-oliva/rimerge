@@ -63,7 +63,7 @@ ExternalProject_Add(gtest
         INSTALL_COMMAND "")
 ExternalProject_Get_property(gtest INSTALL_DIR)
 set(gtest-include ${INSTALL_DIR}/src/gtest/googletest/include)
-set(gtest-lib ${INSTALL_DIR}/src/gtest-build/lib/libgtest.a ${INSTALL_DIR}/src/gtest-build/lib/libgtest_main.a)
+set(gtest-lib ${INSTALL_DIR}/src/gtest-build/lib/libgtestd.a ${INSTALL_DIR}/src/gtest-build/lib/libgtest_maind.a)
 
 # Google Benchmark
 ExternalProject_Add(gbench
@@ -88,6 +88,7 @@ set(sdsl-include ${INSTALL_DIR}/src/sdsl-build/include)
 set(divsufsort-include ${INSTALL_DIR}/src/sdsl-build/external/libdivsufsort/include)
 set(sdsl-lib ${INSTALL_DIR}/src/sdsl-build/lib/libsdsl.a)
 set(divsufsort-lib ${INSTALL_DIR}/src/sdsl-build/external/libdivsufsort/lib/libdivsufsort.a)
+set(divsufsort64-lib ${INSTALL_DIR}/src/sdsl-build/external/libdivsufsort/lib/libdivsufsort64.a)
 
 # spdlog
 ExternalProject_Add(spdlog
@@ -155,7 +156,6 @@ set(rimerge-libs
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set (rimerge-libs ${rimerge-libs} "stdc++fs" "dl")
-    message(STATUS ${rimerge-libs})
 endif()
 
 ################################################################################
@@ -188,13 +188,13 @@ add_subdirectory(experiments)
 link_directories(/usr/local/lib)
 
 add_executable(unit_tests tests/unit_tests.cpp)
-target_include_directories(unit_tests PRIVATE "${gtest-include}" "${rimerge-includes}")
-add_dependencies(unit_tests rimerge gtest)
-target_link_libraries(unit_tests rimerge ${rimerge-libs} ${gtest-lib})
+add_dependencies(unit_tests rimerge gtest sdsl)
+target_include_directories(unit_tests PRIVATE "${gtest-include}" "${rimerge-includes}" "${gsacak-includes}")
+target_link_libraries(unit_tests rimerge ${rimerge-libs} ${divsufsort-lib} ${divsufsort64-lib} ${gsacak-lib} ${gtest-lib})
 
 add_executable(bwtmerge_tests tests/test_bwtmerge.cpp)
-target_include_directories(bwtmerge_tests PRIVATE "${gtest-include}" "${rimerge-includes}")
 add_dependencies(bwtmerge_tests rimerge gtest)
+target_include_directories(bwtmerge_tests PRIVATE "${gtest-include}" "${rimerge-includes}")
 target_link_libraries(bwtmerge_tests rimerge ${rimerge-libs} ${gtest-lib})
 
 #add_executable(ribenchmarks tests/benchmarks.cpp)

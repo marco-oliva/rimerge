@@ -62,7 +62,7 @@ public:
     
     
     // Constructors and Destructors
-    RIndexRLE() :RIndex<RIndexRLE, RLEString>() {};
+    RIndexRLE() : RIndex<RIndexRLE, RLEString>() {};
     ~RIndexRLE() = default;
     
     static const char name_[];

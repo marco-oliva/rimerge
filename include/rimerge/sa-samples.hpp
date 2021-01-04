@@ -38,6 +38,7 @@ public:
     
     // Accessor
     size_type operator[](const size_type i) const;
+    std::vector<sample_type> get_samples() const;
     
     // Output
     constexpr static size_type SAMPLE_BYTES = 5;

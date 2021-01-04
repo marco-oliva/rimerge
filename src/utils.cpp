@@ -35,6 +35,22 @@
 namespace rimerge
 {
 
+bool
+is_terminator(byte_type c)
+{
+    return (c == DATA_TERMINATOR or c == STRING_TERMINATOR);
+}
+
+
+string_type
+to_string_type(const char* s)
+{
+    std::size_t len = std::strlen(s);
+    string_type out;
+    for (std::size_t i = 0; i < len; i++) { out.push_back(s[i]); }
+    return out;
+}
+
 //------------------------------------------------------------------------------
 
 // Numerical class constants.

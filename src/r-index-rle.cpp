@@ -28,12 +28,14 @@ RIndexRLE::read_bwt(std::string& bwt_path)
     {
         size_type size = bwt_.runs_per_letter[i].size();
         F[i] = size;
-        if (size > 0) alphabet.update((byte_type) i);
-        if ((byte_type) i == STRING_TERMINATOR) sequences_ = size;
+        if (size > 0) { alphabet.update((byte_type) i); }
+        if ((byte_type) i == STRING_TERMINATOR) { sequences_ = size; }
     }
     for (size_type i = F.size() - 1; i > 0; i--) F[i] = F[i-1];
     F[0] = 0;
     for(size_type i = 1; i < F.size(); i++) F[i] += F[i - 1];
+    
+    if (bwt_.size() != 0 and sequences_ == 0) { sequences_ = 1; }
     
     alphabet.init();
 }
@@ -447,7 +449,7 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
 {
     double start = readTimer();
     
-    #pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
+    //#pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
     for (size_type sequence = 0; sequence < right.sequences(); sequence++)
     {
         size_type thread = omp_get_thread_num();
@@ -462,8 +464,7 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
         std::pair<size_type, size_type> prev_samples = std::make_pair(left.samples()[ra_i -1], left.samples()[ra_i]);
         sa_updates.left_samples[thread].insert(std::make_pair((ra_i - 1), prev_samples.first));
         sa_updates.left_samples[thread].insert(std::make_pair((ra_i), prev_samples.second));
-        
-        //spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence , i, char(right_accessor[i]), i, right_sa_value);
+        spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence , i, char(right_accessor[i]), i, right_sa_value);
         
         while (right_accessor[i] != STRING_TERMINATOR and right_accessor[i] != DATA_TERMINATOR)
         {
@@ -476,7 +477,7 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
             
             prev_samples = sa_updates.update_left(left, right, ra_i, ra_j, prev_samples, i, j, thread, right_accessor, left_accessor);
             
-            if ( (right_accessor[j] != left_accessor[ra_j - 1]) or (ra_j < left.size() - 1 and (right_accessor[j] != left_accessor[ra_j - 1 + 1])) )
+            if ( ((ra_j < left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1])) or ((ra_j < left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1 + 1])) )
             {
                 if (left.its(ra_j - 1) == sample_genre::NOT)
                     sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
@@ -501,7 +502,7 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
             ra_i = ra_j;
         }
         
-        //spdlog::info("rimerge::buildRA(): S {} Done", sequence);
+        spdlog::debug("rimerge::buildRA(): S {} Done", sequence);
     }
     
     buffers.flush();
@@ -528,6 +529,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         // Output
         std::string base_path(buffers.parameters.out_prefix + "/tmp_" + std::to_string(job));
         std::ofstream saes(base_path + ".saes", std::ios::binary);
+        if (not saes.is_open()) { spdlog::error("Can't open tmp file: {}", base_path + ".saes"); std::exit(EXIT_FAILURE); }
         
         ProducerBuffer<RankArray> ra(*(buffers.ra[job]));
         
