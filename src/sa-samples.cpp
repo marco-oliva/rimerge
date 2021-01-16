@@ -45,7 +45,7 @@ SA_samples::operator[](const rimerge::size_type i) const
     if (i > this->markers_bitvector.size()) {spdlog::error("SA_samples::operator[]: invalid access"); exit(EXIT_FAILURE); }
     if (not markers_bitvector[i])
     {
-        if (Verbosity::level >= Verbosity::EXTENDED) {spdlog::warn("rimerge::SA_samples::operator[](): Asked for not sampled value: {}", i);}
+        if (Verbosity::level >= Verbosity::EXTENDED) {spdlog::debug("rimerge::SA_samples::operator[](): Asked for not sampled value: {}", i);}
         return invalid_value();
     }
     

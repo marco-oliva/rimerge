@@ -40,6 +40,7 @@ void
 RLEString::Metadata::close()
 {
     if (closed or reading) return;
+    closed = true;
     
     std::ofstream out(file_path, std::ios::binary);
     out.write(reinterpret_cast<char*>(&size), sizeof(size_type));

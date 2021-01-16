@@ -257,7 +257,7 @@ public:
             return encoders[i].second;
         }
         
-        void close() { if (not merged) {merge();}  metadata.close(); }
+        void close() { if (not merged) { merge(); }  metadata.close(); }
         
         ~RLEncoderMerger()
         {
@@ -265,7 +265,7 @@ public:
             for (auto& e: encoders)
             {
                 std::string r_meta = e.first + ".meta";
-                if (not std::remove(r_meta.c_str())) spdlog::info("can't remove: {}", r_meta);
+                if (not std::remove(r_meta.c_str())) spdlog::debug("can't remove: {} [{}]", r_meta, strerror(errno));
             }
         }
     
