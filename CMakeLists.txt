@@ -63,7 +63,7 @@ ExternalProject_Add(gtest
         INSTALL_COMMAND "")
 ExternalProject_Get_property(gtest INSTALL_DIR)
 set(gtest-include ${INSTALL_DIR}/src/gtest/googletest/include)
-set(gtest-lib ${INSTALL_DIR}/src/gtest-build/lib/libgtestd.a ${INSTALL_DIR}/src/gtest-build/lib/libgtest_maind.a)
+set(gtest-lib ${INSTALL_DIR}/src/gtest-build/lib/libgtest.a ${INSTALL_DIR}/src/gtest-build/lib/libgtest_main.a)
 
 # Google Benchmark
 ExternalProject_Add(gbench
