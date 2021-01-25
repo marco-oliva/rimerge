@@ -693,7 +693,7 @@ RIndexRLE::check(const RIndex<RIndexRLE, RLEString>& index, std::tuple<std::vect
     for (auto& job_vector : invalid)
         std::get<2>(errors).insert(std::get<2>(errors).end(), job_vector.begin(), job_vector.end());
     
-    return std::get<0>(errors).size() == 0 and std::get<1>(errors).size() <= 1 and std::get<2>(errors).size() == 0;
+    return std::get<0>(errors).size() == 0 and std::get<2>(errors).size() == 0;
 }
 
 }
