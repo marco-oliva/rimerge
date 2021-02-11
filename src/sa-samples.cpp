@@ -35,7 +35,7 @@ SA_samples::init()
         this->compressed_samples.push_back(entry.second);
     }
     this->markers_bitvector = bitvector(markers_bv_builder);
-    this->samples.empty();
+    this->samples.clear();
 }
 
 size_type
