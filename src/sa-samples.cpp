@@ -56,6 +56,7 @@ SA_samples::operator[](const rimerge::size_type i) const
 std::vector<SA_samples::sample_type>
 SA_samples::get_samples() const
 {
+    spdlog::error("SA_samples::get_samples() only for testing purposes");
     if (not initialized) { spdlog::error("Initialize SA_samples before access"); exit(EXIT_FAILURE);}
     std::vector<SA_samples::sample_type> out; out.resize(markers_bitvector.number_of_1());
     for (std::size_t i = 0; i < out.size(); i++)
