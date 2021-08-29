@@ -40,7 +40,7 @@ merge_samples(mio::mmap_source& file_a, mio::mmap_source& file_b, std::ofstream&
     iterator_b = const_cast<char*>(file_b.data()); end_b = const_cast<char*>(file_b.data()) + file_b.size();
 
     // Merge the two files, no duplicates
-    std::pair<size_type, size_type> last_wrote = {0,0};
+    std::pair<size_type, size_type> last_wrote = {1000, 0}; // TODO fix this
     while (iterator_a != end_a and iterator_b != end_b)
     {
         std::pair<size_type, size_type> to_write;
@@ -55,19 +55,19 @@ merge_samples(mio::mmap_source& file_a, mio::mmap_source& file_b, std::ofstream&
             iterator_b += 2 * SAMPLE_BYTES;
         }
         
-        if (to_write != last_wrote) { write_pair(to_write, out_file); last_wrote = to_write; }
+        if (to_write.first != last_wrote.first) { write_pair(to_write, out_file); last_wrote = to_write; }
     }
     while (iterator_a != end_a)
     {
         std::pair<size_type, size_type> to_write = get_index_and_value(iterator_a);
         iterator_a += 2 * SAMPLE_BYTES;
-        if (to_write != last_wrote) { write_pair(to_write, out_file); last_wrote = to_write; }
+        if (to_write.first != last_wrote.first) { write_pair(to_write, out_file); last_wrote = to_write; }
     }
     while (iterator_b != end_b)
     {
         std::pair<size_type, size_type> to_write = get_index_and_value(iterator_b);
         iterator_b += 2 * SAMPLE_BYTES;
-        if (to_write != last_wrote) { write_pair(to_write, out_file); last_wrote = to_write; }
+        if (to_write.first != last_wrote.first) { write_pair(to_write, out_file); last_wrote = to_write; }
     }
     out_file.close();
 }

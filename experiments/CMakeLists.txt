@@ -12,6 +12,8 @@ set(BIG-BWT_files
         "${BIG-BWT}/simplebwt64"
         "${BIG-BWT}/unparse"
         "${BIG-BWT}/unparsz"
+        "${BIG-BWT}/pfbwtNT.x"
+        "${BIG-BWT}/pfbwtNT64.x"
         ${BIG-BWT_files})
 install(PROGRAMS ${BIG-BWT_files} DESTINATION ${INSTALL_PATH})
 install(PROGRAMS ${BIG-BWT}/bigbwt DESTINATION ${INSTALL_PATH})

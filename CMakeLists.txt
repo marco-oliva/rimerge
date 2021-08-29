@@ -205,5 +205,7 @@ target_link_libraries(bwtmerge_tests rimerge ${rimerge-libs} ${gtest-lib})
 ################################################################################
 # Install
 install(PROGRAMS rimerge.py DESTINATION ${INSTALL_PATH} RENAME rimerge)
+install(PROGRAMS rimerge_pfp.py DESTINATION ${INSTALL_PATH} RENAME rimerge_pfp)
+
 
 

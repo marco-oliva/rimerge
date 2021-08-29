@@ -1,32 +1,32 @@
 /* ******************************************************************************
  * pscan.cpp
- * 
- * paralell parsing algorithm for bwt construction of repetitive sequences based 
+ *
+ * paralell parsing algorithm for bwt construction of repetitive sequences based
  * on prefix free parsing. See:
  *   Christina Boucher, Travis Gagie, Alan Kuhnle and Giovanni Manzini
  *   Prefix-Free Parsing for Building Big BWTs
  *   [Proc. WABI '18](http://drops.dagstuhl.de/opus/volltexte/2018/9304/)
- * 
+ *
  * Usage:
  *   pscan.x wsize modulus file
- * 
- * Unless the parameter -c (compression rather than BWT construction) 
- * the input file cannot contain the chars 0x0, 0x1, 0x2 which are used internally. 
- * 
- * Since the i-th thread accesses the i-th segment of the input file 
- * random access (fseek) must be possible. If the input is gzipped 
+ *
+ * Unless the parameter -c (compression rather than BWT construction)
+ * the input file cannot contain the chars 0x0, 0x1, 0x2 which are used internally.
+ *
+ * Since the i-th thread accesses the i-th segment of the input file
+ * random access (fseek) must be possible. If the input is gzipped
  * use cnewscan.x doen't use threads but automatically extracts the content
- * 
- * The parameters wsize and modulus are used to define the prefix free parsing 
+ *
+ * The parameters wsize and modulus are used to define the prefix free parsing
  * using KR-fingerprints (see paper)
- * 
+ *
  * pscan.x takes the same input and options as newscan.x and produces the same
- * output files. The only difference is that pscan is usually faster when 
- * using multiple threads (optioni -t). For single thread computation 
- * use newscanNT that doesn't even compile the code for handling threads. 
- * 
- * For details on the format of input and output files see newscan.cpp 
- * 
+ * output files. The only difference is that pscan is usually faster when
+ * using multiple threads (optioni -t). For single thread computation
+ * use newscanNT that doesn't even compile the code for handling threads.
+ *
+ * For details on the format of input and output files see newscan.cpp
+ *
  */
 #include <assert.h>
 #include <errno.h>
@@ -54,7 +54,7 @@ using namespace std;
 
 
 
-// =============== algorithm limits =================== 
+// =============== algorithm limits ===================
 // maximum number of distinct words
 #define MAX_DISTINCT_WORDS (INT32_MAX -1)
 typedef uint32_t word_int_t;
@@ -73,20 +73,20 @@ struct word_stats {
 // struct containing command line parameters and other globals
 struct Args {
    string inputFileName = "";
-   int w = 10;            // sliding window size and its default 
-   int p = 100;           // modulus for establishing stopping w-tuples 
+   int w = 10;            // sliding window size and its default
+   int p = 100;           // modulus for establishing stopping w-tuples
    bool SAinfo = false;   // compute SA information
-   bool compress = false; // parsing called in compress mode 
+   bool compress = false; // parsing called in compress mode
    int th=4;              // number of helper threads
    int verbose=0;         // verbosity level
-   FILE *tmp_parse_file, *last_file, *sa_file; 
+   FILE *tmp_parse_file, *last_file, *sa_file;
 };
 
 // -----------------------------------------------------------
 // struct containing the maps and the relative mutex
 struct MTmaps {
-   int mt_ratio = 3;                       // ratio between #maps and #threads 
-   int n;                                  // number of maps 
+   int mt_ratio = 3;                       // ratio between #maps and #threads
+   int n;                                  // number of maps
    vector<map<uint64_t,word_stats>> maps;  // maps
    pthread_mutex_t *muts;                  // mutex for each map
    
@@ -98,7 +98,7 @@ struct MTmaps {
      maps.resize(n);
      // init mutexes
      muts = new pthread_mutex_t[n];
-     for(int i=0;i<n;i++) 
+     for(int i=0;i<n;i++)
        xpthread_mutex_init(&muts[i], NULL, __LINE__,__FILE__);
    }
    
@@ -121,21 +121,21 @@ struct MTmaps {
    }
    
   // add the association hash->w to the map hash%n
-  // using a mutex for exclusive write  
+  // using a mutex for exclusive write
   void update(uint64_t hash, string &w);
-      
+  
 };
 
-void MTmaps::update(uint64_t hash, string &w) 
-{  
+void MTmaps::update(uint64_t hash, string &w)
+{
   int i = hash % n;
   map<uint64_t,word_stats> *freq = &maps[i];
-  pthread_mutex_t *m = &muts[i]; 
+  pthread_mutex_t *m = &muts[i];
   xpthread_mutex_lock(m,__LINE__,__FILE__);
   // update frequency table for current hash
   if(freq->find(hash)==freq->end()) {
       (*freq)[hash].occ = 1; // new hash
-      (*freq)[hash].str = w; 
+      (*freq)[hash].str = w;
   }
   else {
       word_stats *wfreq = &(*freq)[hash];  // pointer to the stats for w
@@ -154,10 +154,6 @@ void MTmaps::update(uint64_t hash, string &w)
   xpthread_mutex_unlock(m,__LINE__,__FILE__);
 }
 
-
-
-
-
 // -----------------------------------------------------------------
 // class to maintain a window in a string and its KR fingerprint
 struct KR_window {
@@ -167,35 +163,35 @@ struct KR_window {
   const uint64_t prime = 1999999973;
   uint64_t hash;
   uint64_t tot_char;
-  uint64_t asize_pot;   // asize^(wsize-1) mod prime 
+  uint64_t asize_pot;   // asize^(wsize-1) mod prime
   
   KR_window(int w): wsize(w) {
     asize = 256;
     asize_pot = 1;
-    for(int i=1;i<wsize;i++) 
-      asize_pot = (asize_pot*asize)% prime; // ugly linear-time power algorithm  
+    for(int i=1;i<wsize;i++)
+      asize_pot = (asize_pot*asize)% prime; // ugly linear-time power algorithm
     // alloc and clear window
     window = new int[wsize];
-    reset();     
+    reset();
   }
   
-  // init window, hash, and tot_char 
+  // init window, hash, and tot_char
   void reset() {
     for(int i=0;i<wsize;i++) window[i]=0;
     // init hash value and related values
-    hash=tot_char=0;    
+    hash=tot_char=0;
   }
   
   uint64_t addchar(int c) {
     int k = tot_char++ % wsize;
-    // complex expression to avoid negative numbers 
-    hash += (prime - (window[k]*asize_pot) % prime); // remove window[k] contribution  
-    hash = (asize*hash + c) % prime;      //  add char i 
+    // complex expression to avoid negative numbers
+    hash += (prime - (window[k]*asize_pot) % prime); // remove window[k] contribution
+    hash = (asize*hash + c) % prime;      //  add char i
     window[k]=c;
     // cerr << get_window() << " ~~ " << window << " --> " << hash << endl;
-    return hash; 
+    return hash;
   }
-  // debug only 
+  // debug only
   string get_window() {
     string w = "";
     int k = (tot_char-1) % wsize;
@@ -206,16 +202,16 @@ struct KR_window {
   
   ~KR_window() {
     delete[] window;
-  } 
+  }
 
 };
 
 // -----------------------------------------------------------
 
 
-// compute 64-bit KR hash of a string 
+// compute 64-bit KR hash of a string
 // to avoid overflows in 64 bit aritmethic the prime is taken < 2**55
-// if collisions occur use a prime close to 2**63 and 128 bit variables 
+// if collisions occur use a prime close to 2**63 and 128 bit variables
 uint64_t kr_hash(string s) {
     uint64_t hash = 0;
     //const uint64_t prime = 3355443229;     // next prime(2**31+2**30+2**27)
@@ -224,8 +220,8 @@ uint64_t kr_hash(string s) {
       int c = (unsigned char) s[k];
       assert(c>=0 && c< 256);
       hash = (256*hash + c) % prime;    //  add char k
-    } 
-    return hash; 
+    }
+    return hash;
 }
 
 
@@ -283,7 +279,7 @@ void writeDictOcc(Args &arg, MTmaps &mtmaps, vector<const string *> &sortedDict)
     if(fputc(EndOfDict,fdict)==EOF) die("Error writing EndOfDict to DICT file");
     if(fclose(focc)!=0) die("Error closing OCC file");
   }
-  if(fclose(fdict)!=0) die("Error closing DICT file");  
+  if(fclose(fdict)!=0) die("Error closing DICT file");
 }
 
 void remapParse(Args &arg, MTmaps &mtmaps)
@@ -292,8 +288,8 @@ void remapParse(Args &arg, MTmaps &mtmaps)
   mFile *moldp = mopen_aux_file(arg.inputFileName.c_str(), EXTPARS0, arg.th);
   FILE *newp = open_aux_file(arg.inputFileName.c_str(), EXTPARSE, "wb");
 
-  // recompute occ as an extra check 
-  vector<occ_int_t> occ(mtmaps.size()+1,0); // ranks are zero based 
+  // recompute occ as an extra check
+  vector<occ_int_t> occ(mtmaps.size()+1,0); // ranks are zero based
   uint64_t hash;
   while(true) {
     size_t s = mfread(&hash,sizeof(hash),1,moldp);
@@ -307,11 +303,11 @@ void remapParse(Args &arg, MTmaps &mtmaps)
   if(fclose(newp)!=0) die("Error closing new parse file");
   if(mfclose(moldp)!=0) die("Error closing old parse segment");
   // check old and recomputed occ coincide
-  for(auto &m : mtmaps.maps) 
+  for(auto &m : mtmaps.maps)
     for(auto& x : m)
       assert(x.second.occ == occ[x.second.rank]);
 }
- 
+
 
 
 
@@ -362,7 +358,7 @@ void parseArgs( int argc, char** argv, Args& arg ) {
         exit(1);
       }
    }
-   // the only input parameter is the file name 
+   // the only input parameter is the file name
    if (argc == optind+1) {
      arg.inputFileName.assign( argv[optind] );
    }
@@ -370,7 +366,7 @@ void parseArgs( int argc, char** argv, Args& arg ) {
       cout << "Invalid number of arguments" << endl;
       print_help(argv,arg);
    }
-   // check algorithm parameters 
+   // check algorithm parameters
    if(arg.w <4) {
      cout << "Windows size must be at least 4\n";
      exit(1);
@@ -393,20 +389,20 @@ void parseArgs( int argc, char** argv, Args& arg ) {
 
 int main(int argc, char** argv)
 {
-  // translate command line parameters and store them to arg 
+  // translate command line parameters and store them to arg
   Args arg;
   parseArgs(argc, argv, arg);
   cout << "Windows size: " << arg.w << endl;
-  cout << "Stop word modulus: " << arg.p << endl;  
+  cout << "Stop word modulus: " << arg.p << endl;
   
   // measure elapsed wall clock time
   time_t start_main = time(NULL);
   time_t start_wc = start_main;
-  // init multithread maps 
+  // init multithread maps
   MTmaps mtmaps(arg.th);
   uint64_t totChar;
 
-  // ------------ parsing input file 
+  // ------------ parsing input file
   try {
     totChar = mt_process_file(arg,mtmaps);
   }
@@ -414,11 +410,11 @@ int main(int argc, char** argv)
       cout << "Out of memory (parsing phase)... emergency exit\n";
       die("bad alloc exception");
   }
-  // first report 
+  // first report
   uint64_t totDWord = mtmaps.size();
   cout << "Total input symbols: " << totChar << endl;
   cout << "Found " << totDWord << " distinct words" <<endl;
-  cout << "Parsing took: " << difftime(time(NULL),start_wc) << " wall clock seconds\n";  
+  cout << "Parsing took: " << difftime(time(NULL),start_wc) << " wall clock seconds\n";
   // check # distinct words
   if(totDWord>MAX_DISTINCT_WORDS) {
     cerr << "Emergency exit! The number of distinct words (" << totDWord << ")\n";
@@ -426,7 +422,7 @@ int main(int argc, char** argv)
     exit(1);
   }
 
-  // -------------- second pass  
+  // -------------- second pass
   start_wc = time(NULL);
   // create array of dictionary words
   vector<const string *> dictArray;
@@ -444,22 +440,22 @@ int main(int argc, char** argv)
     }
   }
   assert(dictArray.size()==totDWord);
-  cout << "Sum of lenghts of dictionary words: " << sumLen << endl; 
-  cout << "Total number of words: " << totWord << endl; 
+  cout << "Sum of lenghts of dictionary words: " << sumLen << endl;
+  cout << "Total number of words: " << totWord << endl;
 
   // sort dictionary
   sort(dictArray.begin(), dictArray.end(),pstringCompare);
-  // write plain dictionary and occ file, also compute rank for each hash 
+  // write plain dictionary and occ file, also compute rank for each hash
   cout << "Writing plain dictionary and occ file\n";
   writeDictOcc(arg, mtmaps, dictArray);
   dictArray.clear(); // reclaim memory
-  cout << "Dictionary construction took: " << difftime(time(NULL),start_wc) << " wall clock seconds\n";  
-    
+  cout << "Dictionary construction took: " << difftime(time(NULL),start_wc) << " wall clock seconds\n";
+  
   // remap parse file
   start_wc = time(NULL);
   cout << "Generating remapped parse file\n";
   remapParse(arg, mtmaps);
-  cout << "Remapping parse file took: " << difftime(time(NULL),start_wc) << " wall clock seconds\n";  
-  cout << "==== Elapsed time: " << difftime(time(NULL),start_main) << " wall clock seconds\n";        
+  cout << "Remapping parse file took: " << difftime(time(NULL),start_wc) << " wall clock seconds\n";
+  cout << "==== Elapsed time: " << difftime(time(NULL),start_main) << " wall clock seconds\n";
   return 0;
 }
