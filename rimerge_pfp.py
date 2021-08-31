@@ -65,7 +65,7 @@ def execute_command(command, seconds = 100000000):
 
 #------------------------------------------------------------
 # Run BigBWT
-def build_rindex(input_prefix, window_length, modulo):
+def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
     # ----------- computation of the BWT of the parsing
     start = time.time()
     parse_size = os.path.getsize(input_prefix + ".parse")/4
@@ -85,11 +85,9 @@ def build_rindex(input_prefix, window_length, modulo):
     print("Elapsed time: {0:.4f}".format(time.time()-start));
 
     # ----------- compute final BWT using dictionary and BWT of parse
-    num_of_sequences = 1
-    with open(input_prefix + ".dict", "rb") as f:
-        while (byte := f.read(1)):
-            if (byte == b'\x03'):
-                num_of_sequences += 1
+    if num_of_sequences == 0:
+        print("The number of sequences needs to be specified for now")
+        sys.exit(1)
 
     start = time.time()
     if(os.path.getsize(input_prefix + ".dict") >=  (2**31-4) ):
@@ -139,6 +137,7 @@ def main():
     parser.add_argument('-p', '--modulo', help='modulo (def. 100)', default=100, type=int, dest="modulo")
     parser.add_argument('-o', '--output', help='output index prefix', type=str, dest="output", required=True)
     parser.add_argument('-j', '--merge-jobs', help='number of merge jobs', type=int, default=1, dest="merge_jobs")
+    parser.add_argument('-n', '--sequences', help='number of sequences', type=int, default=0, dest="num_of_sequences")
     parser.add_argument('-C', '--check', help='check output index structure', action='store_true',default=False, dest="check")
     args = parser.parse_args()
 
@@ -152,7 +151,7 @@ def main():
     else:
         if (not os.path.isdir(args.input_b + "_idx")):
             print("Build index of {}".format(args.input_b))
-            build_rindex(args.input_b, args.window, args.modulo)
+            build_rindex(args.input_b, args.window, args.modulo, args.num_of_sequences)
         else:
             print("input_b is already an index, not re-computing")
         print("Start merging")
