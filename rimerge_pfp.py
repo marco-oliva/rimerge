@@ -107,8 +107,7 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
     # ----------- compute
     command = "{estw} -i {i_prefix}".format(estw=estw_exe, i_prefix=input_prefix)
     execute_command(command)
-    command = "{rle} -i {i_prefix}".format(rle=rle_exe, i_prefix=input_prefix)
-    execute_command(command)
+
     remove_file(input_prefix + ".ssa")
     remove_file(input_prefix + ".esa")
     remove_file(input_prefix + ".nsa")
