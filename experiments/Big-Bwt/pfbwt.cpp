@@ -62,6 +62,10 @@ constexpr double GIGABYTE_DOUBLE = KILOBYTE_DOUBLE * MEGABYTE_DOUBLE;
 constexpr size_type MILLION      = 1000000;
 constexpr size_type BILLION      = 1000 * MILLION;
 
+constexpr byte_type IMPL_TERMINATOR   = 0;
+constexpr byte_type DATA_TERMINATOR   = 1;
+constexpr byte_type STRING_TERMINATOR = 3;
+
 //------------------------------------------------------------------------------
 
 class RLEString
@@ -147,7 +151,7 @@ public:
           metadata.init(path + ".meta", Metadata::write_tag());
         }
         
-        void operator()(byte_type c) { assert(not closed); /*if (c == '\0') { c = '$'; }*/ append(c); }
+        void operator()(byte_type c) { assert(not closed); if (c == '\0') { c = STRING_TERMINATOR; } append(c); }
         void operator()(byte_type c, size_type len) { while (len > 0) { this->operator()(c); len -= 1; } }
         
         void close();
@@ -428,7 +432,7 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
           if(arg.sampledSA&END_RUN) lastSa = sa; // save current sa
         }
         // in any case output BWT char
-        bwt_encoder.append(nextbwt);
+        bwt_encoder(nextbwt);
         //if(fputc(nextbwt,fbwt)==EOF) die("BWT write error 0");
         lastbwt = nextbwt;   // update lastbwt
         easy_bwts++;
@@ -471,6 +475,7 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
   cout << "Hard bwt chars: " << hard_bwts << endl;
   cout << "Generating the final BWT took " << difftime(time(NULL),start) << " wall clock seconds\n";
   //fclose(fbwt);
+  bwt_encoder.close();
   delete[] lcp;
   delete[] sa;
   if(arg.SA or arg.sampledSA!=0) free(bwsainfo);
@@ -772,7 +777,7 @@ static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t
       uint32_t s = id2merge[i];
       for(long j=istart[s];j<istart[s+1];j++)
       {
-        bwt_encoder.append(char2write[0]);
+        bwt_encoder(char2write[0]);
         //if(fputc(char2write[0],fbwt)==EOF) die("BWT write error 1");
       }
       easy_bwts +=  istart[s+1]- istart[s];
@@ -788,7 +793,7 @@ static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t
     while(heap.size()>0) {
       // output char for the top of the heap
       SeqId s = heap.front();
-      bwt_encoder.append(s.char2write);
+      bwt_encoder(s.char2write);
       //if(fputc(s.char2write,fbwt)==EOF) die("BWT write error 2");
       hard_bwts += 1;
       // remove top
@@ -815,7 +820,7 @@ static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint
   if(numwords==1) {
     uint32_t s = id2merge[0];
     for(long j=istart[s];j<istart[s+1];j++) {
-      bwt_encoder.append(char2write[0]);
+      bwt_encoder(char2write[0]);
       //if(fputc(char2write[0],fbwt)==EOF) die("BWT write error 1");
       uint64_t sa = get_myint(bwsainfo,n,ilist[j]) - suffixLen;
       if(fwrite(&sa,SABYTES,1,safile)!=1) die("SA write error 1");
@@ -832,7 +837,7 @@ static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint
     while(heap.size()>0) {
       // output char for the top of the heap
       SeqId s = heap.front();
-      bwt_encoder.append(s.char2write);
+      bwt_encoder(s.char2write);
       //if(fputc(s.char2write,fbwt)==EOF) die("BWT write error 2");
       uint64_t sa = get_myint(bwsainfo,n,*(s.bwtpos)) - suffixLen;
       if(fwrite(&sa,SABYTES,1,safile)!=1) die("SA write error 2");
@@ -879,7 +884,7 @@ static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uin
     }
     for(long j=istart[s];j<istart[s+1];j++) // write all BWT chars
     {
-      bwt_encoder.append(bwtnext);
+      bwt_encoder(bwtnext);
       //if(fputc(bwtnext,fbwt)==EOF) die("BWT write error 1");
     }
     easy_bwts +=  istart[s+1]- istart[s];
@@ -898,7 +903,7 @@ static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uin
       uint64_t sa;
       SeqId s = heap.front();
       int bwtnext = s.char2write;
-      bwt_encoder.append(bwtnext);
+      bwt_encoder(bwtnext);
       //if(fputc(bwtnext,fbwt)==EOF) die("BWT write error 2");
       if ((ssa & END_RUN) || (bwtnext!=bwtlast))
         sa = get_myint(bwsainfo,n,*(s.bwtpos)) - suffixLen;
