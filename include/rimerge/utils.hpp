@@ -90,7 +90,7 @@ constexpr size_type BILLION      = 1000 * MILLION;
 
 constexpr byte_type IMPL_TERMINATOR   = 0;
 constexpr byte_type DATA_TERMINATOR   = 1;
-constexpr byte_type STRING_TERMINATOR = '$';
+constexpr byte_type STRING_TERMINATOR = 3;
 
 bool is_terminator(byte_type c);
 
