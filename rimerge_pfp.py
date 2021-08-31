@@ -88,7 +88,7 @@ def build_rindex(input_prefix, window_length, modulo):
     num_of_sequences = 1
     with open(input_prefix + ".dict", "rb") as f:
         while (byte := f.read(1)):
-            if (byte == 3):
+            if (byte == b'\x03'):
                 num_of_sequences += 1
 
     start = time.time()
