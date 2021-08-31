@@ -112,14 +112,13 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
     remove_file(input_prefix + ".ssa")
     remove_file(input_prefix + ".esa")
     remove_file(input_prefix + ".nsa")
-    remove_file(input_prefix + ".bwt")
     remove_file(input_prefix + ".ilist")
     remove_file(input_prefix + ".bwlast")
     remove_file(input_prefix + ".bwsai")
 
     mkdir_p(input_prefix + "_idx")
-    os.replace(input_prefix + ".rle", input_prefix + "_idx"+ "/bwt.rle")
-    os.replace(input_prefix + ".rle.meta", input_prefix + "_idx" + "/bwt.rle.meta")
+    os.replace(input_prefix + ".rlebwt", input_prefix + "_idx"+ "/bwt.rle")
+    os.replace(input_prefix + ".rlebwt.meta", input_prefix + "_idx" + "/bwt.rle.meta")
     os.replace(input_prefix + ".saes", input_prefix + "_idx" + "/samples.saes")
 
 #------------------------------------------------------------

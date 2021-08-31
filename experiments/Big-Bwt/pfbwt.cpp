@@ -33,6 +33,224 @@ extern "C" {
 #include "utils.h"
 }
 
+//------------------------------------------------------------------------------
+
+typedef unsigned long long size_type;
+typedef unsigned long long rank_type;
+typedef unsigned short_type;
+typedef unsigned char  byte_type;
+
+//------------------------------------------------------------------------------
+
+constexpr size_type alphabet_max_size = 256;
+
+constexpr size_type BYTE_BITS    = 8;
+constexpr size_type S_WORD_BITS  = 32;
+constexpr size_type WORD_BITS    = 64;
+
+constexpr size_type LOW_MASK     = 0xFFFFFFFFULL;
+
+constexpr size_type KILOBYTE     = 1024;
+constexpr size_type MEGABYTE     = KILOBYTE * KILOBYTE;
+constexpr size_type GIGABYTE     = KILOBYTE * MEGABYTE;
+
+constexpr double KILOBYTE_DOUBLE = 1024.0;
+constexpr double MILLION_DOUBLE  = 1000000.0;
+constexpr double MEGABYTE_DOUBLE = KILOBYTE_DOUBLE * KILOBYTE_DOUBLE;
+constexpr double GIGABYTE_DOUBLE = KILOBYTE_DOUBLE * MEGABYTE_DOUBLE;
+
+constexpr size_type MILLION      = 1000000;
+constexpr size_type BILLION      = 1000 * MILLION;
+
+//------------------------------------------------------------------------------
+
+class RLEString
+{
+
+public:
+    
+    //------------------------------------------------------------------------------
+    
+    class Metadata
+    {
+    private:
+        
+        bool closed = false;
+        bool reading = false, writing = false;
+        
+        std::string file_path;
+    
+    public:
+        
+        size_type size = 0;
+        size_type runs = 0;
+        
+        std::array<size_type, alphabet_max_size> size_per_char = {0};
+        std::array<size_type, alphabet_max_size> runs_per_char = {0};
+        
+        struct read_tag  {};
+        struct write_tag {};
+        
+        Metadata(std::string path, read_tag tag) { init(path, tag); }
+        Metadata(std::string path, write_tag tag) { init(path, tag); }
+        Metadata() {}
+        ~Metadata() {  if (not closed) close(); };
+        
+        void init(std::string path, read_tag tag);
+        void init(std::string path, write_tag tag);
+        
+        void close();
+    };
+    
+    //------------------------------------------------------------------------------
+    
+    class RLEncoder
+    {
+    public:
+        
+        using packed_type = uint32_t;
+        
+        constexpr static packed_type LENGTH_BITS = 3 * 8;
+        constexpr static packed_type LENGTH_MASK = 0x7FFFFF00;
+        constexpr static packed_type NEXT_RECORD = 0x80000000;
+        constexpr static packed_type MAX_LEN     = 0x7FFFFF;
+        
+        constexpr static packed_type CHAR_BITS   = 1 * 8;
+        constexpr static packed_type CHAR_MASK   = 0xFF;
+    
+    public:
+        std::string out_path;
+        std::ofstream out_stream;
+        bool closed = false;
+        
+        size_type curr_run_length = 0;
+        byte_type curr_run_char   = 0;
+        
+        void append(byte_type c);
+        
+        void write(byte_type c, size_type len, std::ofstream& out);
+    
+    public:
+        
+        // Metadata
+        Metadata metadata;
+        
+        RLEncoder(std::string path) { init(path); }
+        RLEncoder() {}
+        ~RLEncoder() { if (not closed) close(); }
+        
+        void init(std::string& path)
+        {
+          out_path = path;
+          out_stream.open(path, std::ios::binary);
+          if (not out_stream.is_open()) { std::cout << "Error while opening: " << path << std::endl; std::exit(EXIT_FAILURE); }
+          metadata.init(path + ".meta", Metadata::write_tag());
+        }
+        
+        void operator()(byte_type c) { assert(not closed); /*if (c == '\0') { c = '$'; }*/ append(c); }
+        void operator()(byte_type c, size_type len) { while (len > 0) { this->operator()(c); len -= 1; } }
+        
+        void close();
+    };
+};
+
+//------------------------------------------------------------------------------
+
+void
+RLEString::Metadata::init(std::string path, read_tag tag)
+{
+  reading = true;
+  this->file_path = path;
+  
+  std::ifstream in(file_path, std::ios::binary);
+  in.read(reinterpret_cast<char*>(&size), sizeof(size_type));
+  in.read(reinterpret_cast<char*>(&runs), sizeof(size_type));
+  
+  for (size_type i = 0; i < alphabet_max_size; i++) { in.read(reinterpret_cast<char*>(&size_per_char[i]), sizeof(size_type)); }
+  for (size_type i = 0; i < alphabet_max_size; i++) { in.read(reinterpret_cast<char*>(&runs_per_char[i]), sizeof(size_type)); }
+  
+  in.close();
+}
+
+void
+RLEString::Metadata::init(std::string path, write_tag tag)
+{
+  writing = true;
+  this->file_path = path;
+}
+
+void
+RLEString::Metadata::close()
+{
+  if (closed or reading) return;
+  closed = true;
+  
+  std::ofstream out(file_path, std::ios::binary);
+  out.write(reinterpret_cast<char*>(&size), sizeof(size_type));
+  out.write(reinterpret_cast<char*>(&runs), sizeof(size_type));
+  
+  for (size_type i = 0; i < alphabet_max_size; i++) { out.write(reinterpret_cast<char*>(&size_per_char[i]), sizeof(size_type)); }
+  for (size_type i = 0; i < alphabet_max_size; i++) { out.write(reinterpret_cast<char*>(&runs_per_char[i]), sizeof(size_type)); }
+  
+  out.close();
+}
+
+//------------------------------------------------------------------------------
+
+void
+RLEString::RLEncoder::write(byte_type c, size_type len, std::ofstream& out)
+{
+  packed_type tmp = 0;
+  if (len <= MAX_LEN)
+  {
+    tmp = len << 8;
+    tmp = tmp | (packed_type) c;
+    out.write(reinterpret_cast<char*>(&tmp), sizeof(packed_type));
+  }
+  else
+  {
+    tmp = MAX_LEN << 8;
+    tmp = tmp | NEXT_RECORD;
+    tmp = tmp | (packed_type) c;
+    out.write(reinterpret_cast<char*>(&tmp), sizeof(packed_type));
+    
+    write(c, len - MAX_LEN, out);
+  }
+}
+
+void
+RLEString::RLEncoder::close()
+{
+  if (closed) return; closed = true;
+  
+  write(curr_run_char, curr_run_length, out_stream);
+  out_stream.close();
+  
+  // Metadata
+  metadata.close();
+}
+
+void
+RLEString::RLEncoder::append(byte_type c)
+{
+  metadata.size += 1; metadata.size_per_char[c] += 1;
+  
+  if (curr_run_char == '\0')
+  {
+    curr_run_length = 1; curr_run_char = c;
+    metadata.runs = 1; metadata.runs_per_char[c] +=1;
+    return;
+  } // first char
+  if (c == curr_run_char) { curr_run_length++; return; }
+  
+  metadata.runs += 1; metadata.runs_per_char[c] +=1;
+  
+  write(curr_run_char, curr_run_length, out_stream);
+  curr_run_char = c; curr_run_length = 1;
+}
+
+//------------------------------------------------------------------------------
+
 using namespace std;
 using namespace __gnu_cxx;
 
@@ -62,10 +280,10 @@ static long get_num_words(uint8_t *d, long n);
 static long binsearch(uint_t x, uint_t a[], long n);
 static int_t getlen(uint_t p, uint_t eos[], long n, uint32_t *seqid);
 static void compute_dict_bwt_lcp(uint8_t *d, long dsize,long dwords, int w, uint_t **sap, int_t **lcpp);
-static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, FILE *fbwt, long &easy_bwts, long &hard_bwts);
-static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, FILE *fbwt, long &easy_bwts, long &hard_bwts,
+static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, RLEString::RLEncoder& bwe_encoder /*FILE *fbwt*/, long &easy_bwts, long &hard_bwts);
+static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, RLEString::RLEncoder& bwe_encoder /*FILE *fbwt*/, long &easy_bwts, long &hard_bwts,
                                      int_t suffixLen, FILE *safile, uint8_t *bwsainfo,long);
-static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, FILE *fbwt, long &easy_bwts, long &hard_bwts,
+static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, RLEString::RLEncoder& bwe_encoder /*FILE *fbwt*/, long &easy_bwts, long &hard_bwts,
                                      int_t suffixLen, FILE *ssafile, FILE *esafile, uint8_t *bwsainfo,long, int &, uint64_t &, int);
 static uint8_t *load_bwsa_info(Args &arg, long n);
 
@@ -136,7 +354,8 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
     assert(eos[i]<eos[i+1]);
 
   // open output file
-  FILE *fbwt = open_aux_file(arg.basename,"bwt","wb");
+  //FILE *fbwt = open_aux_file(arg.basename,"bwt","wb");
+  RLEString::RLEncoder bwt_encoder(std::string(arg.basename) + ".rlebwt");
 
   // aggiunto
   long suffissi_stampati = 0;
@@ -209,7 +428,8 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
           if(arg.sampledSA&END_RUN) lastSa = sa; // save current sa
         }
         // in any case output BWT char
-        if(fputc(nextbwt,fbwt)==EOF) die("BWT write error 0");
+        bwt_encoder.append(nextbwt);
+        //if(fputc(nextbwt,fbwt)==EOF) die("BWT write error 0");
         lastbwt = nextbwt;   // update lastbwt
         easy_bwts++;
       }
@@ -233,11 +453,11 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
     }
     // output to fbwt the bwt chars corresponding to the current dictionary suffix, and, if requested, some SA values
     if(arg.SA)
-      fwrite_chars_same_suffix_sa(id2merge,char2write,ilist,istart,fbwt,easy_bwts,hard_bwts,suffixLen,safile,bwsainfo,psize);
+      fwrite_chars_same_suffix_sa(id2merge,char2write,ilist,istart,bwt_encoder/*,fbwt*/,easy_bwts,hard_bwts,suffixLen,safile,bwsainfo,psize);
     else if(arg.sampledSA!=0)
-      fwrite_chars_same_suffix_ssa(id2merge,char2write,ilist,istart,fbwt,easy_bwts,hard_bwts,suffixLen,ssafile,esafile,bwsainfo,psize,lastbwt,lastSa,arg.sampledSA);
+      fwrite_chars_same_suffix_ssa(id2merge,char2write,ilist,istart,bwt_encoder/*,fbwt*/,easy_bwts,hard_bwts,suffixLen,ssafile,esafile,bwsainfo,psize,lastbwt,lastSa,arg.sampledSA);
     else
-      fwrite_chars_same_suffix(id2merge,char2write,ilist,istart,fbwt,easy_bwts,hard_bwts);
+      fwrite_chars_same_suffix(id2merge,char2write,ilist,istart,bwt_encoder/*,fbwt*/,easy_bwts,hard_bwts);
   }
   // write very last Sa pair
   if(arg.sampledSA & END_RUN) {
@@ -250,7 +470,7 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
   cout << "Easy bwt chars: " << easy_bwts << endl;
   cout << "Hard bwt chars: " << hard_bwts << endl;
   cout << "Generating the final BWT took " << difftime(time(NULL),start) << " wall clock seconds\n";
-  fclose(fbwt);
+  //fclose(fbwt);
   delete[] lcp;
   delete[] sa;
   if(arg.SA or arg.sampledSA!=0) free(bwsainfo);
@@ -540,7 +760,8 @@ static void compute_dict_bwt_lcp(uint8_t *d, long dsize,long dwords, int w,
 // doing a merge operation if necessary
 static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write,
                                     uint32_t *ilist, uint32_t *istart,
-                                    FILE *fbwt, long &easy_bwts, long &hard_bwts)
+                                    RLEString::RLEncoder& bwt_encoder,
+                                    /*FILE *fbwt,*/ long &easy_bwts, long &hard_bwts)
 {
   size_t numwords = id2merge.size(); // numwords dictionary words contain the same suffix
   bool samechar=true;
@@ -550,7 +771,10 @@ static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t
     for(size_t i=0; i<numwords; i++) {
       uint32_t s = id2merge[i];
       for(long j=istart[s];j<istart[s+1];j++)
-        if(fputc(char2write[0],fbwt)==EOF) die("BWT write error 1");
+      {
+        bwt_encoder.append(char2write[0]);
+        //if(fputc(char2write[0],fbwt)==EOF) die("BWT write error 1");
+      }
       easy_bwts +=  istart[s+1]- istart[s];
     }
   }
@@ -564,7 +788,8 @@ static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t
     while(heap.size()>0) {
       // output char for the top of the heap
       SeqId s = heap.front();
-      if(fputc(s.char2write,fbwt)==EOF) die("BWT write error 2");
+      bwt_encoder.append(s.char2write);
+      //if(fputc(s.char2write,fbwt)==EOF) die("BWT write error 2");
       hard_bwts += 1;
       // remove top
       pop_heap(heap.begin(),heap.end());
@@ -582,14 +807,16 @@ static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t
 // and the corresponding SA entries doing a merge operation
 static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write,
                                     uint32_t *ilist, uint32_t *istart,
-                                    FILE *fbwt, long &easy_bwts, long &hard_bwts,
+                                    RLEString::RLEncoder& bwt_encoder,
+                                    long &easy_bwts, long &hard_bwts,
                                     int_t suffixLen, FILE *safile, uint8_t *bwsainfo, long n)
 {
   size_t numwords = id2merge.size(); // numwords dictionary words contain the same suffix
   if(numwords==1) {
     uint32_t s = id2merge[0];
     for(long j=istart[s];j<istart[s+1];j++) {
-      if(fputc(char2write[0],fbwt)==EOF) die("BWT write error 1");
+      bwt_encoder.append(char2write[0]);
+      //if(fputc(char2write[0],fbwt)==EOF) die("BWT write error 1");
       uint64_t sa = get_myint(bwsainfo,n,ilist[j]) - suffixLen;
       if(fwrite(&sa,SABYTES,1,safile)!=1) die("SA write error 1");
     }
@@ -605,7 +832,8 @@ static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint
     while(heap.size()>0) {
       // output char for the top of the heap
       SeqId s = heap.front();
-      if(fputc(s.char2write,fbwt)==EOF) die("BWT write error 2");
+      bwt_encoder.append(s.char2write);
+      //if(fputc(s.char2write,fbwt)==EOF) die("BWT write error 2");
       uint64_t sa = get_myint(bwsainfo,n,*(s.bwtpos)) - suffixLen;
       if(fwrite(&sa,SABYTES,1,safile)!=1) die("SA write error 2");
       hard_bwts += 1;
@@ -625,7 +853,8 @@ static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint
 // and the corresponding sampled SA entries doing a merge operation
 static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write,
                                     uint32_t *ilist, uint32_t *istart,
-                                    FILE *fbwt, long &easy_bwts, long &hard_bwts,
+                                    RLEString::RLEncoder& bwt_encoder,
+                                    /*FILE *fbwt,*/ long &easy_bwts, long &hard_bwts,
                                     int_t suffixLen, FILE *ssafile, FILE *esafile,
                                     uint8_t *bwsainfo, long n, int &bwtlast, uint64_t &salast,int ssa)
 {
@@ -649,7 +878,10 @@ static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uin
       bwtlast = bwtnext;
     }
     for(long j=istart[s];j<istart[s+1];j++) // write all BWT chars
-      if(fputc(bwtnext,fbwt)==EOF) die("BWT write error 1");
+    {
+      bwt_encoder.append(bwtnext);
+      //if(fputc(bwtnext,fbwt)==EOF) die("BWT write error 1");
+    }
     easy_bwts +=  istart[s+1]- istart[s];
     if(ssa&END_RUN) // save the last sa value
       salast = get_myint(bwsainfo,n,ilist[istart[s+1]-1]) - suffixLen;
@@ -666,7 +898,8 @@ static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uin
       uint64_t sa;
       SeqId s = heap.front();
       int bwtnext = s.char2write;
-      if(fputc(bwtnext,fbwt)==EOF) die("BWT write error 2");
+      bwt_encoder.append(bwtnext);
+      //if(fputc(bwtnext,fbwt)==EOF) die("BWT write error 2");
       if ((ssa & END_RUN) || (bwtnext!=bwtlast))
         sa = get_myint(bwsainfo,n,*(s.bwtpos)) - suffixLen;
       if (bwtnext!=bwtlast) {
