@@ -147,7 +147,7 @@ def main():
     # build index from pfp, A given as an index B given as pfp
     if (args.input_b is None):
         print("Build index")
-        build_rindex(args.input_a, args.window, args.modulo)
+        build_rindex(args.input_a, args.window, args.modulo, args.num_of_sequences)
     else:
         if (not os.path.isdir(args.input_b + "_idx")):
             print("Build index of {}".format(args.input_b))
