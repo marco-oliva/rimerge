@@ -449,7 +449,6 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
 {
     double start = readTimer();
     
-    omp_set_num_threads(buffers.parameters.merge_jobs);
     #pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
     for (size_type sequence = 0; sequence < right.sequences(); sequence++)
     {

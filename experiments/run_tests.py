@@ -48,7 +48,6 @@ def split(input_file, output_dir, seqs, blocks=1, ignore=0):
         next(input_file_iterator)
 
     seqs_per_block = int(seqs / blocks)
-    print("{} seqs per block".format(seqs_per_block))
     for b in range (0, blocks):
         output_path = output_dir + "/" + os.path.basename(filename) + "." + str(seqs) + "." + str(b) + ".seqs"
         file_paths.append(output_path)
