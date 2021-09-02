@@ -13,11 +13,11 @@ Testing script
 #------------------------------------------------------------
 # Binaries
 dirname = os.path.dirname(os.path.abspath(__file__))
-rimerge_exe     =  os.path.join(dirname, "rimerge.x")
-check_exe       =  os.path.join(dirname, "check.x")
-estw_exe        =  os.path.join(dirname, "estw.x")
-rle_exe         =  os.path.join(dirname, "rle.x")
-bigbwt_exe      =  os.path.join(dirname, "bigbwt")
+rimerge_exe     =  os.path.join(dirname, "../bin/rimerge.x")
+check_exe       =  os.path.join(dirname, "../bin/check.x")
+estw_exe        =  os.path.join(dirname, "../bin/estw.x")
+rle_exe         =  os.path.join(dirname, "../bin/rle.x")
+bigbwt_exe      =  os.path.join(dirname, "../bin/bigbwt")
 
 #------------------------------------------------------------
 # Profiling options
@@ -26,6 +26,15 @@ bigbwt_exe      =  os.path.join(dirname, "bigbwt")
 time = ""
 #time = "valgrind --tool=massif"
 #time = "valgrind  --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose"
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python ≥ 2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise # nop
 
 #------------------------------------------------------------
 # Get n sequences from the input fasta file
@@ -103,16 +112,14 @@ def run_big_bwt(file_path, n_of_sequences, seconds, window, module, check, bonly
     execute_command(command, seconds)
     command = "{profiler} {estw} -i {i_prefix}".format(profiler=time, estw=estw_exe, i_prefix=file_path)
     execute_command(command, seconds)
-    command = "{profiler} {rle} -i {i_prefix}".format(profiler=time, rle=rle_exe, i_prefix=file_path)
-    execute_command(command, seconds)
+    print(file_path)
     remove_file(file_path + ".ssa")
     remove_file(file_path + ".esa")
     remove_file(file_path + ".nsa")
-    remove_file(file_path + ".bwt")
-    remove_file(file_path)
-    os.replace(file_path + ".rle", os.path.dirname(file_path) + "/bwt.rle")
-    os.replace(file_path + ".rle.meta", os.path.dirname(file_path) + "/bwt.rle.meta")
-    os.replace(file_path + ".saes", os.path.dirname(file_path) + "/samples.saes")
+    mkdir_p(file_path + "_idx")
+    os.replace(file_path + ".rlebwt", file_path + "_idx" + "/bwt.rle")
+    os.replace(file_path + ".rlebwt.meta", file_path + "_idx" + "/bwt.rle.meta")
+    os.replace(file_path + ".saes", file_path + "_idx" + "/samples.saes")
     if (check):
         command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=time, i_prefix=file_path, check=check_exe)
         execute_command(command, seconds)
@@ -164,9 +171,10 @@ def main():
     if (not args.skip):
         seqs_per_block = int(args.seqs / args.blocks)
         print("Splitting the input file, {} sequences per block".format(seqs_per_block))
-        file_paths = split(args.input, args.output, args.seqs, args.blocks, args.ignore)
+        file_paths = split(args.input, os.path.dirname(args.input), args.seqs, args.blocks, args.ignore)
     else:
         filename, file_extension = os.path.splitext(args.input)
+        file_paths = list()
         for b in range (0, args.blocks):
             output_path = filename + "." + str(args.seqs) + "." + str(b) + ".seqs"
             file_paths.append(output_path)
@@ -179,11 +187,12 @@ def main():
 
     # Iterative Merge
     if (not args.bonly):
+        mkdir_p(args.output)
         print("Merging")
         print("Output file prefix: {}".format(args.output))
-        run_merge(file_paths[0], file_paths[1], args.output, args.seconds, args.check, args.merge_jobs)
+        run_merge(file_paths[0] + "_idx", file_paths[1] + "_idx", args.output, args.seconds, args.check, args.merge_jobs)
         for i in range(2, len(file_paths)):
-            run_merge(args.output, file_paths[i], args.output, args.seconds, args.check, args.merge_jobs)
+            run_merge(args.output, file_paths[i] + "_idx", args.output, args.seconds, args.check, args.merge_jobs)
 
 
 if __name__ == '__main__':
