@@ -449,7 +449,7 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
 {
     double start = readTimer();
     
-    #pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
+    //#pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
     for (size_type sequence = 0; sequence < right.sequences(); sequence++)
     {
         size_type thread = omp_get_thread_num();
@@ -644,8 +644,8 @@ RIndexRLE::merge(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRL
     std::vector<range_type> ranges = Range::partition(range_type(0, left.size()), parameters.merge_jobs);
     
     // Build the rank array
-    MergeBuffers mb(right.size(), parameters.merge_jobs, parameters, ranges);
-    RIndexRLE::SAUpdatesRLE positions(parameters.merge_jobs);
+    MergeBuffers mb(right.size(), omp_get_max_threads(), parameters, ranges);
+    RIndexRLE::SAUpdatesRLE positions(omp_get_max_threads());
     buildRA(left, right, mb, positions);
     spdlog::info("rimerge::merge(): Building the rank array done");
     

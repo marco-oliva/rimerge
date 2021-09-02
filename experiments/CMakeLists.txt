@@ -12,7 +12,6 @@ set(BIG-BWT_files
         "${BIG-BWT}/simplebwt64"
         "${BIG-BWT}/unparse"
         "${BIG-BWT}/unparsz"
-        "${BIG-BWT}/pscan.x"
         "${BIG-BWT}/pfbwtNT.x"
         "${BIG-BWT}/pfbwtNT64.x"
         ${BIG-BWT_files})
