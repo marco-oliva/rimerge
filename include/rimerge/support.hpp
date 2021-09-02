@@ -41,9 +41,9 @@ struct MergeParameters
     constexpr static size_type MERGE_JOBS = 4;
     constexpr static size_type ITERATIONS = 1;
     
-    constexpr static size_type MAX_BUFFER_SIZE = 16384; // Megabytes.
-    constexpr static size_type MAX_MERGE_BUFFERS = 16;
-    constexpr static size_type MAX_MERGE_JOBS = 16;
+    constexpr static size_type MAX_BUFFER_SIZE = 2048; // Megabytes.
+    constexpr static size_type MAX_MERGE_BUFFERS = 64;
+    constexpr static size_type MAX_MERGE_JOBS = 64;
     constexpr static size_type MAX_ITERATIONS = 20;
     
     MergeParameters();
