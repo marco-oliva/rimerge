@@ -449,7 +449,7 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
 {
     double start = readTimer();
     
-    //#pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
+    #pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
     for (size_type sequence = 0; sequence < right.sequences(); sequence++)
     {
         size_type thread = omp_get_thread_num();
