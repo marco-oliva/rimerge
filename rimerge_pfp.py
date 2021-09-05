@@ -122,8 +122,8 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
 
 #------------------------------------------------------------
 # Run merge
-def run_merge(left_file_path, right_file_path, out_file_path, merge_jobs):
-    command = "{rimerge} -a {left} -b {right} -o {out} -j {mj}".format(rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs)
+def run_merge(left_file_path, right_file_path, out_file_path, merge_jobs, search_jobs):
+    command = "{rimerge} -a {left} -b {right} -o {out} -m {mj} -t {sj}".format(rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs, sj=search_jobs)
     execute_command(command)
 
 #------------------------------------------------------------
@@ -134,7 +134,8 @@ def main():
     parser.add_argument('-w', '--wsize', help='sliding window size (def. 10)', default=10, type=int, dest="window")
     parser.add_argument('-p', '--modulo', help='modulo (def. 100)', default=100, type=int, dest="modulo")
     parser.add_argument('-o', '--output', help='output index prefix', type=str, dest="output", required=True)
-    parser.add_argument('-j', '--merge-jobs', help='number of merge jobs', type=int, default=1, dest="merge_jobs")
+    parser.add_argument('-m', '--merge-jobs', help='number of merge jobs', type=int, default=1, dest="merge_jobs")
+    parser.add_argument('-t', '--search-jobs', help='number of search jobs', type=int, default=1, dest="search_jobs")
     parser.add_argument('-n', '--sequences', help='number of sequences', type=int, default=0, dest="num_of_sequences")
     parser.add_argument('-C', '--check', help='check output index structure', action='store_true',default=False, dest="check")
     args = parser.parse_args()
@@ -154,7 +155,7 @@ def main():
             print("input_b is already an index, not re-computing")
         print("Start merging")
         mkdir_p(args.output + "_idx")
-        run_merge(args.input_a, args.input_b + "_idx", args.output + "_idx", args.merge_jobs)
+        run_merge(args.input_a, args.input_b + "_idx", args.output + "_idx", args.merge_jobs, args.search_jobs)
 
     if (args.check):
         command = "{} -i {} -o {}".format(check_exe, args.output + "_idx", args.output + "_idx")
