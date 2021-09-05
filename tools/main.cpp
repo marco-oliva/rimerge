@@ -36,6 +36,7 @@ int main(int argc, char **argv)
     rimerge::size_type merge_jobs = rimerge::MergeParameters::MERGE_JOBS;
     rimerge::size_type pos_size = rimerge::MergeParameters::POS_BUFFER_SIZE;
     rimerge::size_type thr_size = rimerge::MergeParameters::THREAD_BUFFER_SIZE;
+    rimerge::size_type search_jobs = 1;
     
     bool check_flag = false;
     
@@ -44,7 +45,8 @@ int main(int argc, char **argv)
     app.add_option("-o, --output", o_prefix, "Prefix of the output")->required()->configurable();
     app.add_option("--pos-buffer", pos_size, "Positions buffer size")->configurable();
     app.add_option("--thread-buffer", thr_size, "Thread buffer size")->configurable();
-    app.add_option("-j, --merge-jobs", merge_jobs, "Number of merge jobs")->required()->configurable();
+    app.add_option("-m, --merge-jobs", merge_jobs, "Number of merge jobs")->configurable();
+    app.add_option("-t, --search-jobs", search_jobs, "Number of search jobs")->configurable();
     app.add_flag("-c, --check", check_flag, "Check index astructure after merging")->configurable();
     app.add_flag_callback("-v,--version",rimerge::Version::print,"Version");
     app.set_config("--configure");
@@ -81,6 +83,7 @@ int main(int argc, char **argv)
     merge_parameters.setThreadBufferSize(thr_size);
     merge_parameters.setMergeJobs(merge_jobs);
     merge_parameters.setMergeBuffers(merge_jobs);
+    merge_parameters.setSearchJobs(search_jobs);
     rimerge::RIndex<RIndexType, BWTType>::merge(A, B, merge_parameters);
     
     double merging_end = rimerge::readTimer();

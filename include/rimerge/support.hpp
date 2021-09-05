@@ -53,6 +53,7 @@ struct MergeParameters
     void setMergeBuffers(size_type n);
     void setChunkSize(size_type n);
     void setMergeJobs(size_type n);
+    void setSearchJobs(size_type n);
     void setIterations(size_type n);
     
     // These return the sizes in positions/bytes.
@@ -64,6 +65,7 @@ struct MergeParameters
     size_type chunk_size;
     size_type merge_jobs;
     size_type iterations;
+    size_type search_jobs;
     
     std::string out_prefix = "";
 };

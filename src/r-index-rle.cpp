@@ -644,8 +644,9 @@ RIndexRLE::merge(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRL
     std::vector<range_type> ranges = Range::partition(range_type(0, left.size()), parameters.merge_jobs);
     
     // Build the rank array
-    MergeBuffers mb(right.size(), omp_get_max_threads(), parameters, ranges);
-    RIndexRLE::SAUpdatesRLE positions(omp_get_max_threads());
+    omp_set_num_threads(parameters.search_jobs);
+    MergeBuffers mb(right.size(), parameters.search_jobs, parameters, ranges);
+    RIndexRLE::SAUpdatesRLE positions(parameters.search_jobs);
     buildRA(left, right, mb, positions);
     spdlog::info("rimerge::merge(): Building the rank array done");
     

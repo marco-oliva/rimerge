@@ -72,4 +72,10 @@ MergeParameters::setIterations(size_type n)
     this->iterations = Range::bound(n, 1, MAX_ITERATIONS);
 }
 
+void
+MergeParameters::setSearchJobs(size_type n)
+{
+    this->search_jobs = Range::bound(n, 1, omp_get_max_threads());
+}
+
 }
