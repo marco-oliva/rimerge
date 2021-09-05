@@ -121,9 +121,9 @@ def run_big_bwt(file_path, n_of_sequences, seconds, window, module):
 
 #------------------------------------------------------------
 # Run merge
-def run_merge(left_file_path, right_file_path, out_file_path, seconds, merge_jobs):
-    command = "{profiler} {rimerge} -a {left} -b {right} -o {out} -j {mj}".format(profiler=time, rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs)
-    execute_command(command, seconds)
+def run_merge(left_file_path, right_file_path, out_file_path, merge_jobs, search_jobs):
+    command = "{rimerge} -a {left} -b {right} -o {out} -m {mj} -t {sj}".format(rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs, sj=search_jobs)
+    execute_command(command)
 
 
 #------------------------------------------------------------
@@ -134,7 +134,8 @@ def main():
     parser.add_argument('-w', '--wsize', help='sliding window size (def. 10)', default=10, type=int, dest="window")
     parser.add_argument('-p', '--mod', help='hash modulus (def. 100)', default=100, type=int, dest="module")
     parser.add_argument('-o', '--output', help='output index prefix', type=str, dest="output", required=True)
-    parser.add_argument('-j', '--merge-jobs', help='number of merge jobs', type=int, default=4, dest="merge_jobs")
+    parser.add_argument('-m', '--merge-jobs', help='number of merge jobs', type=int, default=4, dest="merge_jobs")
+    parser.add_argument('-t', '--search-jobs', help='number of search jobs', type=int, default=1, dest="search_jobs")
     parser.add_argument('-n', '--blocks', help='number of blocks', default=1, type=int, dest="blocks")
     parser.add_argument('-T', '--timeout', help='command timeouts', default=1800000, type=int, dest="seconds")
     parser.add_argument('-C', '--check', help='check output index structure', action='store_true',default=False, dest="check")
@@ -181,9 +182,9 @@ def main():
             run_big_bwt(file, int((sequences / args.blocks) + 1), args.seconds, args.window, args.module)
 
         if (len(file_paths_moved) > 1):
-            run_merge(os.path.dirname(file_paths_moved[0]), os.path.dirname(file_paths_moved[1]), args.output, args.seconds, args.merge_jobs)
+            run_merge(os.path.dirname(file_paths_moved[0]), os.path.dirname(file_paths_moved[1]), args.output, args.seconds, args.merge_jobs, args.search_jobs)
             for i in range(2, len(file_paths_moved)):
-                run_merge(args.output, os.path.dirname(file_paths_moved[i]), args.output, args.seconds, args.merge_jobs)
+                run_merge(args.output, os.path.dirname(file_paths_moved[i]), args.output, args.seconds, args.merge_jobs, args.search_jobs)
         else:
             move_dir_content(os.path.dirname(file_paths_moved[0]), args.output)
 
@@ -196,7 +197,7 @@ def main():
             sys.exit('Input B wrong format')
         if (not os.path.isdir(args.output)):
             os.mkdir(args.output)
-        run_merge(args.input_a, args.input_b, args.output, args.seconds, args.merge_jobs)
+        run_merge(args.input_a, args.input_b, args.output, args.seconds, args.merge_jobs, args.search_jobs)
     # Second index as fasta
     elif (os.path.isdir(args.input_a) and (not os.path.isdir(args.input_b))):
         sequences = 0
@@ -228,9 +229,9 @@ def main():
 
         if (not os.path.isdir(args.output)):
             os.mkdir(args.output)
-        run_merge(args.input_a, os.path.dirname(file_paths_moved[0]), args.output, args.seconds, args.merge_jobs)
+        run_merge(args.input_a, os.path.dirname(file_paths_moved[0]), args.output, args.seconds, args.merge_jobs, args.search_jobs)
         for i in range(1, len(file_paths_moved)):
-            run_merge(args.output, os.path.dirname(file_paths_moved[i]), args.output, args.seconds, args.merge_jobs)
+            run_merge(args.output, os.path.dirname(file_paths_moved[i]), args.output, args.seconds, args.merge_jobs, args.search_jobs)
 
         remove_dir(tmp_dir_name)
 
