@@ -25,3 +25,15 @@ add_subdirectory(OnlineRlbwt)
 ################################################################################
 # Python testing script
 install(PROGRAMS run_tests.py DESTINATION ${INSTALL_PATH})
+
+################################################################################
+# PFP++
+ExternalProject_Add(pfp
+        GIT_REPOSITORY "git@github.com:marco-oliva/pfp.git"
+        GIT_TAG "origin/templated_parser"
+        CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR}" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}" "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+        UPDATE_COMMAND ""
+        INSTALL_COMMAND "")
+ExternalProject_Get_property(pfp INSTALL_DIR)
+#set(mio-include ${INSTALL_DIR}/src/mio/single_include)
+install(PROGRAMS  ${INSTALL_DIR}/src/pfp-build/pfp++ DESTINATION ${INSTALL_PATH})

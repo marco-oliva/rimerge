@@ -288,7 +288,7 @@ static void fwrite_chars_same_suffix(vector<uint32_t> &id2merge,  vector<uint8_t
 static void fwrite_chars_same_suffix_sa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, RLEString::RLEncoder& bwe_encoder /*FILE *fbwt*/, long &easy_bwts, long &hard_bwts,
                                      int_t suffixLen, FILE *safile, uint8_t *bwsainfo,long);
 static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uint8_t> &char2write, uint32_t *ilist, uint32_t *istart, RLEString::RLEncoder& bwe_encoder /*FILE *fbwt*/, long &easy_bwts, long &hard_bwts,
-                                     int_t suffixLen, FILE *ssafile, FILE *esafile, uint8_t *bwsainfo,long, int &, uint64_t &, int);
+                                     int_t suffixLen, FILE *ssafile, FILE *esafile, FILE *nsuf_file,uint8_t *bwsainfo,long, int &, uint64_t &, int, long& suffissi_stampati, long n_suffs);
 static uint8_t *load_bwsa_info(Args &arg, long n);
 
 // class representing the suffix of a dictionary word
@@ -411,9 +411,7 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
             }
           if (arg.n_suffs != 0 and suffissi_stampati < arg.n_suffs) // li devo stampare
           {
-            // per k volte faccio questa cosa
-            printf("%ld\n", suffissi_stampati);
-            uint64_t sa = get_myint(bwsainfo,psize,ilist[j]) - suffixLen;
+            uint64_t sa = get_myint(bwsainfo,psize,ilist[j]) - suffixLen;;
             if(fwrite(&suffissi_stampati,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
             if(fwrite(&sa,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
             suffissi_stampati++;
@@ -427,6 +425,12 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
               assert(pos==0);
               if(fwrite(&pos,SABYTES,1,ssafile)!=1) die("sampled SA write error 01a");
               if(fwrite(&sa,SABYTES,1,ssafile)!=1) die("sampled SA write error 01b");
+            }
+            if (arg.n_suffs != 0 and suffissi_stampati < arg.n_suffs) // li devo stampare
+            {
+              if(fwrite(&suffissi_stampati,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
+              if(fwrite(&sa,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
+              suffissi_stampati++;
             }
           }
           if(arg.sampledSA&END_RUN) lastSa = sa; // save current sa
@@ -445,7 +449,10 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
     vector<uint8_t> char2write(1,d[sa[i]-1]);
     while(next<dsize && lcp[next]>=suffixLen) {
       assert(lcp[next]==suffixLen);  // the lcp cannot be greater than suffixLen
-      assert(sa[next]>0 && d[sa[next]-1]!=EndOfWord); // sa[next] cannot be a full word
+      assert(sa[next]>0);
+      if (d[sa[next]-1]==EndOfWord) { break; }
+      
+      assert(d[sa[next]-1]!=EndOfWord); // sa[next] cannot be a full word
       int_t nextsuffixLen = getlen(sa[next],eos,dwords,&seqid);
       assert(nextsuffixLen>=suffixLen);
       if(nextsuffixLen==suffixLen) {
@@ -459,7 +466,7 @@ void bwt(Args &arg, uint8_t *d, long dsize, // dictionary and its size
     if(arg.SA)
       fwrite_chars_same_suffix_sa(id2merge,char2write,ilist,istart,bwt_encoder/*,fbwt*/,easy_bwts,hard_bwts,suffixLen,safile,bwsainfo,psize);
     else if(arg.sampledSA!=0)
-      fwrite_chars_same_suffix_ssa(id2merge,char2write,ilist,istart,bwt_encoder/*,fbwt*/,easy_bwts,hard_bwts,suffixLen,ssafile,esafile,bwsainfo,psize,lastbwt,lastSa,arg.sampledSA);
+      fwrite_chars_same_suffix_ssa(id2merge,char2write,ilist,istart,bwt_encoder/*,fbwt*/,easy_bwts,hard_bwts,suffixLen,ssafile,esafile,n_suff_file,bwsainfo,psize,lastbwt,lastSa,arg.sampledSA,suffissi_stampati,arg.n_suffs);
     else
       fwrite_chars_same_suffix(id2merge,char2write,ilist,istart,bwt_encoder/*,fbwt*/,easy_bwts,hard_bwts);
   }
@@ -860,8 +867,9 @@ static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uin
                                     uint32_t *ilist, uint32_t *istart,
                                     RLEString::RLEncoder& bwt_encoder,
                                     /*FILE *fbwt,*/ long &easy_bwts, long &hard_bwts,
-                                    int_t suffixLen, FILE *ssafile, FILE *esafile,
-                                    uint8_t *bwsainfo, long n, int &bwtlast, uint64_t &salast,int ssa)
+                                    int_t suffixLen, FILE *ssafile, FILE *esafile, FILE *n_suff_file,
+                                    uint8_t *bwsainfo, long n, int &bwtlast, uint64_t &salast,int ssa,
+                                    long& suffissi_stampati, long n_suffs)
 {
   size_t numwords = id2merge.size(); // numwords dictionary words contain the same suffix
   if(numwords==1) {
@@ -879,6 +887,13 @@ static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uin
         pos--;
         if(fwrite(&pos,SABYTES,1,esafile)!=1) die("sampled SA write error 1c");
         if(fwrite(&salast,SABYTES,1,esafile)!=1) die("sampled SA write error 1d");
+      }
+      if (n_suffs != 0 and suffissi_stampati < n_suffs) // li devo stampare
+      {
+        uint64_t sa = get_myint(bwsainfo,n,ilist[istart[s]]) - suffixLen;
+        if(fwrite(&suffissi_stampati,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
+        if(fwrite(&sa,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
+        suffissi_stampati++;
       }
       bwtlast = bwtnext;
     }
@@ -919,6 +934,13 @@ static void fwrite_chars_same_suffix_ssa(vector<uint32_t> &id2merge,  vector<uin
           if(fwrite(&salast,SABYTES,1,esafile)!=1) die("sampled SA write error 2d");
         }
         bwtlast = bwtnext;
+      }
+      if (n_suffs != 0 and suffissi_stampati < n_suffs) // li devo stampare
+      {
+        uint64_t sa = get_myint(bwsainfo,n,*(s.bwtpos)) - suffixLen;
+        if(fwrite(&suffissi_stampati,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
+        if(fwrite(&sa,SABYTES,1,n_suff_file)!=1) die("SA write error 0e");
+        suffissi_stampati++;
       }
       if(ssa & END_RUN) salast = sa; // save current sa
       hard_bwts += 1;

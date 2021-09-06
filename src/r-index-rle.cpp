@@ -697,4 +697,10 @@ RIndexRLE::check(const RIndex<RIndexRLE, RLEString>& index, std::tuple<std::vect
     return std::get<0>(errors).size() == 0 and std::get<2>(errors).size() == 0;
 }
 
+bool
+RIndexRLE::check_values(const RIndex<RIndexRLE, RLEString>& index, std::vector<size_type>& errors)
+{
+   return false;
+}
+
 }

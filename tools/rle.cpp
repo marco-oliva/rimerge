@@ -52,8 +52,6 @@ int main(int argc, char **argv)
     }
     else if (d_prefix != "")
     {
-    
-        std::string d_prefix = argv[1];
         spdlog::info("Input: {}", d_prefix);
         spdlog::info("Decoding RLE");
         rimerge::RLEString::RLEDecoder decoder(d_prefix + ".rle");

@@ -18,18 +18,25 @@ check_exe       =  os.path.join(dirname, "check.x")
 estw_exe        =  os.path.join(dirname, "estw.x")
 rle_exe         =  os.path.join(dirname, "rle.x")
 bigbwt_exe      =  os.path.join(dirname, "bigbwt")
+pfp_exe         =  os.path.join(dirname, "pfp++")
+
+parsebwt_exe    = os.path.join(dirname, "bwtparse")
+parsebwt_exe64    = os.path.join(dirname, "bwtparse64")
+
+pfbwtNT_exe       = os.path.join(dirname, "pfbwtNT.x")
+pfbwtNT_exe64       = os.path.join(dirname, "pfbwtNT64.x")
 
 #------------------------------------------------------------
 # Profiling options
 #time = "/usr/bin/time --verbose"
 #time = "valgrind --tool=callgrind"
-time = ""
-#time = "valgrind --tool=massif"
-#time = "valgrind  --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose"
+profiler = ""
+#profiler = "valgrind --tool=massif"
+#profiler = "valgrind  --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose"
 
 #------------------------------------------------------------
 # Get n sequences from the input fasta file
-def split(input_file, output_dir, seqs, blocks=1, ignore=0):
+def split(input_file, output_dir, seqs=1, blocks=1, ignore=0):
     print("Splitting input file in {} parts".format(blocks))
     file_paths = []
     filename, file_extension = os.path.splitext(input_file)
@@ -40,15 +47,14 @@ def split(input_file, output_dir, seqs, blocks=1, ignore=0):
 
     seqs_per_block = int(seqs / blocks)
     for b in range (0, blocks):
-        output_path = output_dir + "/" + os.path.basename(filename) + "." + str(seqs) + "." + str(b) + ".seqs"
+        output_path = output_dir + "/" + os.path.basename(filename) + "." + str(seqs) + "." + str(b) + ".fa"
         file_paths.append(output_path)
         output = open(output_path, "w")
         for s in range(0, seqs_per_block - 1):
             record = next(input_file_iterator)
-            output.write(str(record.seq))
-            output.write('$')
+            SeqIO.write(record, output, "fasta")
         record = next(input_file_iterator)
-        output.write(str(record.seq))
+        SeqIO.write(record, output, "fasta")
         output.close()
 
     return file_paths
@@ -77,9 +83,18 @@ def generate_random_fasta(num_of_sequences, length, error_rate = 0.15):
 def remove_file(file_path):
     os.remove(file_path)
 
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python ≥ 2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise # nop
+
 #------------------------------------------------------------
 # execute command: return True if everything OK, False otherwise
-def execute_command(command, seconds):
+def execute_command(command, seconds = 10000000):
     try:
         print("Command: {}".format(command))
         process = subprocess.Popen(command.split(), preexec_fn=os.setsid)
@@ -98,33 +113,99 @@ def execute_command(command, seconds):
 
 #------------------------------------------------------------
 # Run BigBWT
-def run_big_bwt(file_path, n_of_sequences, seconds, window, module, check, bonly):
-    command = "{profiler} {bigbwt} -t 32 -N {ns} -s -e {file} -p {mod} -w {win}".format(profiler=time, ns=n_of_sequences, file=file_path, bigbwt=bigbwt_exe, mod=module, win=window)
-    execute_command(command, seconds)
-    command = "{profiler} {estw} -i {i_prefix}".format(profiler=time, estw=estw_exe, i_prefix=file_path)
-    execute_command(command, seconds)
-    command = "{profiler} {rle} -i {i_prefix}".format(profiler=time, rle=rle_exe, i_prefix=file_path)
-    execute_command(command, seconds)
+def run_big_bwt(file_path, n_of_sequences, window_length, modulo, check, bonly):
+    command = "{profiler} {bigbwt} -t 32 -N {ns} -s -e {file} -p {mod} -w {win}".format(profiler=profiler, ns=n_of_sequences, file=file_path, bigbwt=bigbwt_exe, mod=modulo, win=window_length)
+    execute_command(command)
+    command = "{profiler} {estw} -i {i_prefix}".format(profiler=profiler, estw=estw_exe, i_prefix=file_path)
+    execute_command(command)
     remove_file(file_path + ".ssa")
     remove_file(file_path + ".esa")
     remove_file(file_path + ".nsa")
-    remove_file(file_path + ".bwt")
+
     remove_file(file_path)
-    os.replace(file_path + ".rle", os.path.dirname(file_path) + "/bwt.rle")
-    os.replace(file_path + ".rle.meta", os.path.dirname(file_path) + "/bwt.rle.meta")
-    os.replace(file_path + ".saes", os.path.dirname(file_path) + "/samples.saes")
+    index_name = os.path.basename(os.path.splitext(file_path)[0])
+    mkdir_p(index_name)
+    os.replace(file_path + ".rlebwt", index_name + "/bwt.rle")
+    os.replace(file_path + ".rlebwt.meta", index_name + "/bwt.rle.meta")
+    os.replace(file_path + ".saes", index_name + "/samples.saes")
     if (check):
-        command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=time, i_prefix=file_path, check=check_exe)
-        execute_command(command, seconds)
+        command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=profiler, i_prefix=index_name, check=check_exe)
+        execute_command(command)
+    return index_name
+
+def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
+    input_prefix = os.path.basename(os.path.splitext(file_path)[0])
+    command = "{profiler} {pfp} -f {file} -p {mod} -w {win} -o {out}".format(out=input_prefix, profiler=profiler, file=file_path, pfp=pfp_exe, mod=modulo, win=window_length)
+    execute_command(command)
+
+    # ----------- computation of the BWT of the parsing
+    start = time.time()
+    parse_size = os.path.getsize(input_prefix + ".parse")/4
+    if(parse_size >=  (2**32-1) ):
+        print("Sorry, the parse contains %d words" %  parse_size )
+        print("which is more than my current limit 2^32-2")
+        print("Please re-run the program with a larger modulus")
+        sys.exit(1)
+    elif(parse_size >=  (2**31-1) ):
+        command = "{exe} {file}".format(exe = parsebwt_exe64, file=input_prefix)
+    else:
+        command = "{exe} {file}".format(exe = parsebwt_exe, file=input_prefix)
+    command += " -s"
+    print("==== Computing BWT of parsing. Command:", command)
+    if(execute_command(command)!=True):
+        sys.exit(1)
+    print("Elapsed time: {0:.4f}".format(time.time()-start));
+
+    # ----------- compute final BWT using dictionary and BWT of parse
+    if num_of_sequences == 0:
+        print("The number of sequences needs to be specified for now")
+        sys.exit(1)
+
+    start = time.time()
+    if(os.path.getsize(input_prefix + ".dict") >=  (2**31-4) ):
+        # 64 bit version with and without threads
+        command = "{exe} -N {N} -w {wsize} {file} -s -e".format(
+            exe = pfbwtNT_exe64, wsize=window_length, file=input_prefix, N=num_of_sequences)
+    else:  # 32 bit version
+        command = "{exe} -N {N} -w {wsize} {file} -s -e".format(
+            exe = pfbwtNT_exe, wsize=window_length, file=input_prefix, N=num_of_sequences)
+
+    print("==== Computing final BWT. Command:", command)
+    if(execute_command(command)!=True):
+        sys.exit(1)
+    print("Elapsed time: {0:.4f}".format(time.time()-start))
+    print("Total construction time: {0:.4f}".format(time.time()-start))
+
+    # ----------- compute
+    command = "{estw} -i {i_prefix}".format(estw=estw_exe, i_prefix=input_prefix)
+    execute_command(command)
+
+    #remove_file(input_prefix + ".ssa")
+    #remove_file(input_prefix + ".esa")
+    #remove_file(input_prefix + ".nsa")
+    #remove_file(input_prefix + ".ilist")
+    #remove_file(input_prefix + ".bwlast")
+    #remove_file(input_prefix + ".bwsai")
+
+    mkdir_p(input_prefix)
+    os.replace(input_prefix + ".rlebwt", input_prefix+ "/bwt.rle")
+    os.replace(input_prefix + ".rlebwt.meta", input_prefix + "/bwt.rle.meta")
+    os.replace(input_prefix + ".saes", input_prefix + "/samples.saes")
+
+    if (check):
+        command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=profiler, i_prefix=input_prefix, check=check_exe)
+        execute_command(command)
+
+    return input_prefix
 
 #------------------------------------------------------------
 # Run merge
-def run_merge(left_file_path, right_file_path, out_file_path, seconds, check, merge_jobs):
+def run_merge(left_file_path, right_file_path, out_file_path, check, merge_jobs, search_jobs):
     base_path = ""
-    command = "{profiler} {rimerge} -a {left} -b {right} -o {out} -j {mj}".format(profiler=time, rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs)
+    command = "{profiler} {rimerge} -a {left} -b {right} -o {out} -m {mj} -t {sj}".format(profiler=profiler, rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs, sj=search_jobs)
     if (check):
         command = command + " -c"
-    execute_command(command, seconds)
+    execute_command(command)
 
 
 #------------------------------------------------------------
@@ -135,12 +216,12 @@ def main():
     parser.add_argument('-p', '--mod', help='hash modulus (def. 100)', default=100, type=int, dest="module")
     parser.add_argument('-I', '--ignore', help='Ignore first I sequences', type=int, dest="ignore", default=0)
     parser.add_argument('-o', '--output', help='output file prefix', type=str, dest="output")
-    parser.add_argument('-j', '--merge-jobs', help='number of merge jobs', type=int, default=4, dest="merge_jobs")
+    parser.add_argument('-m', '--merge-jobs', help='number of merge jobs', type=int, default=4, dest="merge_jobs")
+    parser.add_argument('-t', '--search-jobs', help='number of search jobs', type=int, default=1, dest="search_jobs")
     parser.add_argument('-n', '--seqs', help='number of sequences as percentage', default=1, type=int, dest="seqs")
     parser.add_argument('-b', '--blocks', help='number of blocks', default=1, type=int, dest="blocks")
     parser.add_argument('-B',  help='run Big-BWT ONLY',action='store_true', dest="bonly")
     parser.add_argument('-C',  help='check index structure after each merge',action='store_true', dest="check")
-    parser.add_argument('-T', '--timeout', help='command timeouts', default=18000, type=int, dest="seconds")
     parser.add_argument('-R',  help='Run on random sequences',action='store_true', dest="random")
     parser.add_argument('-S',  help='Skip Big-BWT',action='store_true', dest="skip")
 
@@ -154,7 +235,7 @@ def main():
 
     # Generate the input file
     if (args.random and not args.skip):
-        args.input = generate_random_fasta(args.seqs, 600000)
+        args.input = generate_random_fasta(args.seqs, 60000)
     elif (args.random and args.skip):
         cwd = os.getcwd()
         file_name = "{wd}/random_{n}.fasta".format(wd=cwd, n=args.seqs)
@@ -164,7 +245,7 @@ def main():
     if (not args.skip):
         seqs_per_block = int(args.seqs / args.blocks)
         print("Splitting the input file, {} sequences per block".format(seqs_per_block))
-        file_paths = split(args.input, args.output, args.seqs, args.blocks, args.ignore)
+        file_paths = split(args.input, os.getcwd(), args.seqs, args.blocks, args.ignore)
     else:
         filename, file_extension = os.path.splitext(args.input)
         for b in range (0, args.blocks):
@@ -172,18 +253,25 @@ def main():
             file_paths.append(output_path)
 
     # Run Big-BWT on each block
+    indexes = list()
     if (not args.skip):
-        print("Running Big-BWT")
+        print("Running PFP++")
         for i in range(0, len(file_paths)):
-            run_big_bwt(file_paths[i], seqs_per_block + 1, args.seconds, args.window, args.module, args.check, args.bonly)
+            index_name = build_rindex(file_paths[i], seqs_per_block + 1, args.window, args.module, args.check)
+            indexes.append(index_name)
 
     # Iterative Merge
     if (not args.bonly):
         print("Merging")
         print("Output file prefix: {}".format(args.output))
-        run_merge(file_paths[0], file_paths[1], args.output, args.seconds, args.check, args.merge_jobs)
+        mkdir_p(args.output)
+        run_merge(indexes[0], indexes[1], args.output, args.check, args.merge_jobs, args.search_jobs)
         for i in range(2, len(file_paths)):
-            run_merge(args.output, file_paths[i], args.output, args.seconds, args.check, args.merge_jobs)
+            run_merge(args.output, indexes[i], args.output, args.check, args.merge_jobs, args.search_jobs)
+
+    if (args.check):
+        command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
+    execute_command(command)
 
 
 if __name__ == '__main__':

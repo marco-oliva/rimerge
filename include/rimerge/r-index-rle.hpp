@@ -103,6 +103,10 @@ public:
     // Check if the structure of the index is correct
     static bool check(const RIndex<RIndexRLE, RLEString>& index, std::tuple<std::vector<size_type>, std::vector<size_type>, std::vector<size_type>>& errors);
     
+    // Check samples value
+    static bool check_values(const RIndex<RIndexRLE, RLEString>& index, std::vector<size_type>& errors);
+  
+  
 };
 
 
