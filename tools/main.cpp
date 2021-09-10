@@ -37,8 +37,6 @@ int main(int argc, char **argv)
     rimerge::size_type thr_size = rimerge::MergeParameters::THREAD_BUFFER_SIZE;
     rimerge::size_type search_jobs = 1;
     
-    bool check_flag = false;
-    
     app.add_option("-a,--aprefix", a_prefix, "Prefix of A")->required()->configurable();
     app.add_option("-b,--bprefix", b_prefix, "Prefix of B")->required()->configurable();
     app.add_option("-o, --output", o_prefix, "Prefix of the output")->required()->configurable();
@@ -46,7 +44,6 @@ int main(int argc, char **argv)
     app.add_option("--thread-buffer", thr_size, "Thread buffer size")->configurable();
     app.add_option("-m, --merge-jobs", merge_jobs, "Number of merge jobs")->configurable();
     app.add_option("-t, --search-jobs", search_jobs, "Number of search jobs")->configurable();
-    app.add_flag("-c, --check", check_flag, "Check index astructure after merging")->configurable();
     app.add_flag_callback("-v,--version",rimerge::Version::print,"Version");
     app.set_config("--configure");
     app.allow_windows_style_options();

@@ -196,15 +196,13 @@ def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
         command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=profiler, i_prefix=input_prefix, check=check_exe)
         execute_command(command)
 
-    return input_prefix
+    return input_prefix 
 
 #------------------------------------------------------------
 # Run merge
 def run_merge(left_file_path, right_file_path, out_file_path, check, merge_jobs, search_jobs):
     base_path = ""
     command = "{profiler} {rimerge} -a {left} -b {right} -o {out} -m {mj} -t {sj}".format(profiler=profiler, rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs, sj=search_jobs)
-    if (check):
-        command = command + " -c"
     execute_command(command)
 
 
@@ -235,7 +233,7 @@ def main():
 
     # Generate the input file
     if (args.random and not args.skip):
-        args.input = generate_random_fasta(args.seqs, 60000)
+        args.input = generate_random_fasta(args.seqs, 100000)
     elif (args.random and args.skip):
         cwd = os.getcwd()
         file_name = "{wd}/random_{n}.fasta".format(wd=cwd, n=args.seqs)
@@ -247,6 +245,7 @@ def main():
         print("Splitting the input file, {} sequences per block".format(seqs_per_block))
         file_paths = split(args.input, os.getcwd(), args.seqs, args.blocks, args.ignore)
     else:
+        file_paths = list()
         filename, file_extension = os.path.splitext(args.input)
         for b in range (0, args.blocks):
             output_path = filename + "." + str(args.seqs) + "." + str(b) + ".fa"
@@ -269,13 +268,14 @@ def main():
         print("Output file prefix: {}".format(args.output))
         mkdir_p(args.output)
         run_merge(indexes[0], indexes[1], args.output, args.check, args.merge_jobs, args.search_jobs)
+        if (args.check):
+            command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
+            execute_command(command)
         for i in range(2, len(file_paths)):
             run_merge(args.output, indexes[i], args.output, args.check, args.merge_jobs, args.search_jobs)
-
-    if (args.check):
-        command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
-    execute_command(command)
-
+            if (args.check):
+                command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
+                execute_command(command)
 
 if __name__ == '__main__':
     main()
