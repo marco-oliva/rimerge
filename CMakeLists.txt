@@ -62,8 +62,14 @@ ExternalProject_Add(gtest
         UPDATE_COMMAND ""
         INSTALL_COMMAND "")
 ExternalProject_Get_property(gtest INSTALL_DIR)
-set(gtest-include ${INSTALL_DIR}/src/gtest/googletest/include)
-set(gtest-lib ${INSTALL_DIR}/src/gtest-build/lib/libgtest.a ${INSTALL_DIR}/src/gtest-build/lib/libgtest_main.a)
+if (CMAKE_BUILD_TYPE STREQUAL "DEBUG" OR CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "GTest Debug")
+    set(gtest-include ${INSTALL_DIR}/src/gtest/googletest/include)
+    set(gtest-lib ${INSTALL_DIR}/src/gtest-build/lib/libgtestd.a ${INSTALL_DIR}/src/gtest-build/lib/libgtest_maind.a)
+else()
+    set(gtest-include ${INSTALL_DIR}/src/gtest/googletest/include)
+    set(gtest-lib ${INSTALL_DIR}/src/gtest-build/lib/libgtest.a ${INSTALL_DIR}/src/gtest-build/lib/libgtest_main.a)
+endif()
 
 # Google Benchmark
 ExternalProject_Add(gbench

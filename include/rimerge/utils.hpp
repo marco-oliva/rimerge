@@ -44,7 +44,6 @@
 #include <sdsl/wavelet_trees.hpp>
 #include <sdsl/suffix_arrays.hpp>
 
-
 #include <spdlog/spdlog.h>
 
 #include <mio/mio.hpp>

@@ -200,7 +200,9 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
                 sample = {inserting_index, down};
                 SA_samples::write(sample, saes);
             }
-            else { spdlog::error("Sample missing in left_updates! {} 1 {}", ra_value, inserting_index); /* exit(1); */ }
+            else {
+                spdlog::error("Sample missing in left_updates! {} 1 {}", ra_value, inserting_index); exit(1);
+            }
         }
         LFL = true; LLI = index;
     }
@@ -221,7 +223,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
                 sample = {inserting_index, left.samples()[index]};
                 SA_samples::write(sample, saes);
             }
-            else { spdlog::error("Sample missing in left_updates! {} 2 {}", prev_ra_value, inserting_index); /* exit(1); */ }
+            else { spdlog::error("Sample missing in left_updates! {} 2 {}", prev_ra_value, inserting_index); exit(1); }
         }
         else if ((index == ra_value - 1) and left_cache[index] != right_cache[LRI + 1])
         {
@@ -237,7 +239,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
                 sample = {inserting_index, left.samples()[index]};
                 SA_samples::write(sample, saes);
             }
-            else { spdlog::error("Sample missing in left_updates! {} 3 {}", ra_value, inserting_index); /* exit(1); */ }
+            else { spdlog::error("Sample missing in left_updates! {} 3 {}", ra_value, inserting_index); exit(1); }
         }
         else if ( (index != ra_value - 1) and (its & SG::END) )
         {
@@ -277,9 +279,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
                 SA_samples::write(sample, saes);
             }
             else if (down == updates.end_right())
-            {
-                spdlog::error("Sample missing in right updates! {} 4 {}", ra_value, inserting_index); /* exit(1); */
-            }
+            { spdlog::error("Sample missing in right updates! {} 4 {}", ra_value, inserting_index); exit(1); }
         }
         
         LFL = false; LRI = index;
@@ -314,7 +314,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
                 sample = {inserting_index, up.second + left.size()};
                 SA_samples::write(sample, saes);
             }
-            else { spdlog::error("Sample missing in right_updates! {} 5 {}", ra_value, inserting_index); /* exit(1); */ }
+            else { spdlog::error("Sample missing in right_updates! {} 5 {}", ra_value, inserting_index); exit(1); }
         }
         else if ( (ra_value != next_ra_value) and (right_cache[index] != left_cache[LLI + 1]) )
         {
@@ -325,7 +325,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
                 sample = {inserting_index, down.second + left.size()};
                 SA_samples::write(sample, saes);
             }
-            else { spdlog::error("Sample missing in right_updates! {} 6 {}", ra_value, inserting_index); /* exit(1); */ }
+            else { spdlog::error("Sample missing in right_updates! {} 6 {}", ra_value, inserting_index); exit(1); }
         }
         LFL = false; LRI = index;
     }
@@ -404,15 +404,12 @@ RIndexRLE::SAUpdatesRLE::update_right_min(const RIndex<RIndexRLE, RLEString>& le
     if (entry_min != thread_map_min.end())
     {
         if ( (j < entry_min->second.first) and (left_accessor[ra_j - 1] == right_accessor[j]) )
-            thread_map_min.erase(entry_min);
-        else
-        if (j < entry_min->second.first)
-            thread_map_min[ra_j] = std::make_pair(j, sa_value);
+        { thread_map_min.erase(entry_min); }
+        else if (j < entry_min->second.first)
+        {thread_map_min[ra_j] = std::make_pair(j, sa_value);}
     }
-    else if (right.its(j) == sample_genre::NOT)
-    {
-        thread_map_min.insert(std::make_pair(ra_j, std::make_pair(j, sa_value)));
-    }
+    else if (right.its(j) == sample_genre::NOT and left_accessor[ra_j - 1] != right_accessor[j])
+    { thread_map_min.insert(std::make_pair(ra_j, std::make_pair(j, sa_value))); }
 }
 
 void
@@ -425,14 +422,12 @@ RIndexRLE::SAUpdatesRLE::update_right_max(const RIndex<RIndexRLE, RLEString>& le
     if (entry_max != thread_map_max.end())
     {
         if ( (j > entry_max->second.first) and (left_accessor[ra_j] == right_accessor[j]) )
-            thread_map_max.erase(entry_max);
+        { thread_map_max.erase(entry_max); }
         else if (j > entry_max->second.first)
-            thread_map_max[ra_j] = std::make_pair(j, sa_value);
+        { thread_map_max[ra_j] = std::make_pair(j, sa_value); }
     }
-    else if (right.its(j) == sample_genre::NOT)
-    {
-        thread_map_max.insert(std::make_pair(ra_j, std::make_pair(j, sa_value)));
-    }
+    else if (right.its(j) == sample_genre::NOT and left_accessor[ra_j] != right_accessor[j])
+    { thread_map_max.insert(std::make_pair(ra_j, std::make_pair(j, sa_value))); }
 }
 
 //------------------------------------------------------------------------------
@@ -477,26 +472,34 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
             
             prev_samples = sa_updates.update_left(left, right, ra_i, ra_j, prev_samples, i, j, thread, right_accessor, left_accessor);
             
-            if ( ((ra_j < left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1])) or ((ra_j < left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1 + 1])) )
+            // Breaking a run
+            if ( ((ra_j < left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1]))
+                or
+                ((ra_j < left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1 + 1])) )
             {
                 if (left.its(ra_j - 1) == sample_genre::NOT)
                     sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
-                if (left.its(ra_j) == sample_genre::NOT)
+                if (left.its(ra_j - 1 + 1) == sample_genre::NOT)
                     sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples.second));
             }
             
-            auto right_min_entry = sa_updates.right_samples[thread].first.find(ra_j); auto end_min = sa_updates.right_samples[thread].first.end();
-            if ((right_min_entry != end_min) or (right_accessor[j] != left_accessor[ra_j - 1]))
-            {
-                sa_updates.update_right_min(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
-            }
-            
-            auto right_max_entry = sa_updates.right_samples[thread].second.find(ra_j); auto end_max = sa_updates.right_samples[thread].second.end();
-            if ((right_max_entry != end_max) or (ra_j < left.size() - 1 and (right_accessor[j] != left_accessor[ra_j - 1 + 1])))
-            {
-                sa_updates.update_right_max(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
-            }
-          
+//            auto right_min_entry = sa_updates.right_samples[thread].first.find(ra_j);
+//            auto end_min = sa_updates.right_samples[thread].first.end();
+//            if ((right_min_entry != end_min)
+//            or
+//            (right_accessor[j] != left_accessor[ra_j - 1]))
+//            {
+            sa_updates.update_right_min(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
+//            }
+
+//            auto right_max_entry = sa_updates.right_samples[thread].second.find(ra_j);
+//            auto end_max = sa_updates.right_samples[thread].second.end();
+//            if ((right_max_entry != end_max)
+//            or
+//            (ra_j < left.size() - 1 and (right_accessor[j] != left_accessor[ra_j - 1 + 1])))
+//            {
+            sa_updates.update_right_max(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
+//            }
             
             i = j;
             ra_i = ra_j;

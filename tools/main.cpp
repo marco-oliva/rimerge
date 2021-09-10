@@ -25,7 +25,6 @@ int main(int argc, char **argv)
     typedef rimerge::RIndexRLE RIndexType;
     typedef rimerge::RLEString BWTType;
     
-    
     rimerge::Verbosity::set(rimerge::Verbosity::FULL);
     
     CLI::App app("rimerge");

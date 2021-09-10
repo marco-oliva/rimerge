@@ -1,7 +1,7 @@
 ################################################################################
 # Custom Big-BWT
 set(BIG-BWT "${CMAKE_SOURCE_DIR}/experiments/Big-Bwt")
-add_custom_target(bigbwt COMMAND make  WORKING_DIRECTORY ${BIG-BWT})
+add_custom_target(bigbwt COMMAND make WORKING_DIRECTORY ${BIG-BWT})
 file(GLOB BIG-BWT_files "${BIG-BWT}/*.x")
 set(BIG-BWT_files
         "${BIG-BWT_files}"
@@ -35,5 +35,4 @@ ExternalProject_Add(pfp
         UPDATE_COMMAND ""
         INSTALL_COMMAND "")
 ExternalProject_Get_property(pfp INSTALL_DIR)
-#set(mio-include ${INSTALL_DIR}/src/mio/single_include)
 install(PROGRAMS  ${INSTALL_DIR}/src/pfp-build/pfp++ DESTINATION ${INSTALL_PATH})

@@ -249,7 +249,7 @@ def main():
     else:
         filename, file_extension = os.path.splitext(args.input)
         for b in range (0, args.blocks):
-            output_path = filename + "." + str(args.seqs) + "." + str(b) + ".seqs"
+            output_path = filename + "." + str(args.seqs) + "." + str(b) + ".fa"
             file_paths.append(output_path)
 
     # Run Big-BWT on each block
@@ -259,6 +259,9 @@ def main():
         for i in range(0, len(file_paths)):
             index_name = build_rindex(file_paths[i], seqs_per_block + 1, args.window, args.module, args.check)
             indexes.append(index_name)
+    else:
+        for file_name in file_paths:
+            indexes.append(os.path.basename(os.path.splitext(file_name)[0]))
 
     # Iterative Merge
     if (not args.bonly):

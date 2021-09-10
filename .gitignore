@@ -4,3 +4,4 @@ tests/files/**/*.rle
 tests/files/**/*.saes
 tests/files/*.seq
 tests/files/*.meta
+*.o
