@@ -35,10 +35,6 @@ ExternalProject_Add(pfp
                     "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
                     "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
                     "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
-                    "-DHTSlib_INCLUDE_DIR=${HTSlib_INCLUDE_DIR}"
-                    "-DHTSlib_LIBRARY=${HTSlib_LIBRARY}"
-                    "-DCMAKE_LIBRARY_PATH=${CMAKE_LIBRARY_PATH}"
-                    "-DHTSlib_LIBRARIES=z;dl;curl;crypto;lzma;bz2"
         UPDATE_COMMAND ""
         INSTALL_COMMAND "")
 ExternalProject_Get_property(pfp INSTALL_DIR)

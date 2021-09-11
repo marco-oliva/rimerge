@@ -459,12 +459,19 @@ pos_buffers(num_threads), thread_buffers(num_threads),
 merge_buffers(params.merge_buffers),
 job_ranges(node_ranges), ra(node_ranges.size(), nullptr),
 ra_values(0), ra_bytes(0), final_size(expected_size),
-max_values(node_ranges.size(), 0),
-min_values(node_ranges.size(), std::numeric_limits<size_type>::max())
+max_values_threads(num_threads), max_values(node_ranges.size(), 0),
+min_values_threads(num_threads), min_values(node_ranges.size(), std::numeric_limits<size_type>::max())
+
 {
     for(size_type i = 0; i < this->ra.size(); i++)
     {
         this->ra[i] = new RankArray();
+    }
+    
+    for (size_type i = 0; i < num_threads; i ++)
+    {
+        this->max_values_threads[i] = std::vector<rank_type>(node_ranges.size(), 0);
+        this->min_values_threads[i] = std::vector<rank_type>(node_ranges.size(), std::numeric_limits<size_type>::max());
     }
 }
 
@@ -498,6 +505,20 @@ MergeBuffers::flush()
     {
         spdlog::info("MergeBuffers::flush(): Wrote {} values to disk", buffer_values);
     }
+    
+    // Merge max and min values
+    for (size_type range = 0; range < min_values.size(); range++)
+    {
+        for (size_type t = 0; t < thread_buffers.size(); t++)
+        {
+            rank_type element_max = max_values_threads[t][range];
+            rank_type element_min = min_values_threads[t][range];
+            
+            this->max_values[range] = (element_max > max_values[range]) ? element_max : max_values[range];
+            this->min_values[range] = (element_min < min_values[range]) ? element_min : min_values[range];
+        }
+    }
+    
 }
 
 void
