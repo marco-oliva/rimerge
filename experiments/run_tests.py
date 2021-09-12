@@ -26,6 +26,9 @@ parsebwt_exe64    = os.path.join(dirname, "bwtparse64")
 pfbwtNT_exe       = os.path.join(dirname, "pfbwtNT.x")
 pfbwtNT_exe64       = os.path.join(dirname, "pfbwtNT64.x")
 
+pfbwtSANT_exe       = os.path.join(dirname, "pfbwtSANT.x")
+pfbwtSANT_exe64       = os.path.join(dirname, "pfbwtSANT64.x")
+
 #------------------------------------------------------------
 # Profiling options
 #time = "/usr/bin/time --verbose"
@@ -113,26 +116,6 @@ def execute_command(command, seconds = 10000000):
 
 #------------------------------------------------------------
 # Run BigBWT
-def run_big_bwt(file_path, n_of_sequences, window_length, modulo, check, bonly):
-    command = "{profiler} {bigbwt} -t 32 -N {ns} -s -e {file} -p {mod} -w {win}".format(profiler=profiler, ns=n_of_sequences, file=file_path, bigbwt=bigbwt_exe, mod=modulo, win=window_length)
-    execute_command(command)
-    command = "{profiler} {estw} -i {i_prefix}".format(profiler=profiler, estw=estw_exe, i_prefix=file_path)
-    execute_command(command)
-    remove_file(file_path + ".ssa")
-    remove_file(file_path + ".esa")
-    remove_file(file_path + ".nsa")
-
-    remove_file(file_path)
-    index_name = os.path.basename(os.path.splitext(file_path)[0])
-    mkdir_p(index_name)
-    os.replace(file_path + ".rlebwt", index_name + "/bwt.rle")
-    os.replace(file_path + ".rlebwt.meta", index_name + "/bwt.rle.meta")
-    os.replace(file_path + ".saes", index_name + "/samples.saes")
-    if (check):
-        command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=profiler, i_prefix=index_name, check=check_exe)
-        execute_command(command)
-    return index_name
-
 def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
     input_prefix = os.path.basename(os.path.splitext(file_path)[0])
     command = "{profiler} {pfp} -f {file} -p {mod} -w {win} -o {out}".format(out=input_prefix, profiler=profiler, file=file_path, pfp=pfp_exe, mod=modulo, win=window_length)
@@ -157,6 +140,21 @@ def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
     print("Elapsed time: {0:.4f}".format(time.time()-start));
 
     # ----------- compute final BWT using dictionary and BWT of parse
+    start = time.time()
+    if(os.path.getsize(input_prefix + ".dict") >=  (2**31-4) ):
+        # 64 bit version with and without threads
+        command = "{exe} -w {wsize} {file} -s -e".format(
+            exe = pfbwtNT_exe64, wsize=window_length, file=input_prefix)
+    else:  # 32 bit version
+        command = "{exe} -w {wsize} {file} -s -e".format(
+            exe = pfbwtNT_exe, wsize=window_length, file=input_prefix)
+
+    print("==== Computing final BWT. Command:", command)
+    if(execute_command(command)!=True):
+        sys.exit(1)
+    print("Elapsed time: {0:.4f}".format(time.time()-start))
+
+    # ----------- compute first N samples using dictionary and BWT of parse
     if num_of_sequences == 0:
         print("The number of sequences needs to be specified for now")
         sys.exit(1)
@@ -164,13 +162,13 @@ def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
     start = time.time()
     if(os.path.getsize(input_prefix + ".dict") >=  (2**31-4) ):
         # 64 bit version with and without threads
-        command = "{exe} -N {N} -w {wsize} {file} -s -e".format(
-            exe = pfbwtNT_exe64, wsize=window_length, file=input_prefix, N=num_of_sequences)
+        command = "{exe} -N {N} -w {wsize} {file}".format(
+            exe = pfbwtSANT_exe64, wsize=window_length, file=input_prefix, N=num_of_sequences)
     else:  # 32 bit version
-        command = "{exe} -N {N} -w {wsize} {file} -s -e".format(
-            exe = pfbwtNT_exe, wsize=window_length, file=input_prefix, N=num_of_sequences)
+        command = "{exe} -N {N} -w {wsize} {file}".format(
+            exe = pfbwtSANT_exe, wsize=window_length, file=input_prefix, N=num_of_sequences)
 
-    print("==== Computing final BWT. Command:", command)
+    print("==== Computing first N SA samples. Command:", command)
     if(execute_command(command)!=True):
         sys.exit(1)
     print("Elapsed time: {0:.4f}".format(time.time()-start))
@@ -196,7 +194,7 @@ def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
         command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=profiler, i_prefix=input_prefix, check=check_exe)
         execute_command(command)
 
-    return input_prefix 
+    return input_prefix
 
 #------------------------------------------------------------
 # Run merge

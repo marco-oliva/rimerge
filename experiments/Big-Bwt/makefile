@@ -3,10 +3,10 @@ CXX_FLAGS=-std=c++11 -O3 -Wall -Wextra -g
 CFLAGS=-O3 -Wall -std=c99 -g
 CC=gcc
 
-# main executables 
+# main executables
 EXECS=bwtparse bwtparse64 simplebwt simplebwt64 newscan.x pscan.x pfbwt.x pfbwt64.x unparse unparsz remap
 # executables not using threads (and therefore not needing the thread library)
-EXECS_NT=newscanNT.x pfbwtNT.x pfbwtNT64.x
+EXECS_NT=newscanNT.x pfbwtNT.x pfbwtNT64.x pfbwtSANT.x pfbwtSANT64.x
 
 # targets not producing a file declared phony
 .PHONY: all clean tarfile
@@ -31,17 +31,17 @@ simplebwt: simplebwt.c gsa/gsacak.o
 simplebwt64: simplebwt.c gsa/gsacak64.o
 	$(CC) $(CFLAGS) -o $@ $^ -DM64
 
-# cnewscan executable to scan gzipped files (currently not active) 
+# cnewscan executable to scan gzipped files (currently not active)
 cnewscan.x: newscan.cpp malloc_count.o utils.o
 	$(CXX) $(CXX_FLAGS) -DGZSTREAM -o $@ $^ -lgzstream -lz -ldl -DNOTHREADS
 
 newscanNT.x: newscan.cpp malloc_count.o utils.o
 	$(CXX) $(CXX_FLAGS) -o $@ $^ -ldl -DNOTHREADS
 
-newscan.x: newscan.cpp newscan.hpp malloc_count.o utils.o xerrors.o 
+newscan.x: newscan.cpp newscan.hpp malloc_count.o utils.o xerrors.o
 	$(CXX) $(CXX_FLAGS) -o $@ newscan.cpp malloc_count.o utils.o xerrors.o -ldl -pthread
 
-pscan.x: pscan.cpp pscan.hpp malloc_count.o utils.o xerrors.o 
+pscan.x: pscan.cpp pscan.hpp malloc_count.o utils.o xerrors.o
 	$(CXX) $(CXX_FLAGS) -o $@ pscan.cpp malloc_count.o utils.o xerrors.o -ldl -pthread
 
 
@@ -61,6 +61,15 @@ pfbwtNT.x: pfbwt.cpp gsa/gsacak.o utils.o malloc_count.o
 pfbwtNT64.x: pfbwt.cpp gsa/gsacak64.o utils.o malloc_count.o
 	$(CXX) $(CXX_FLAGS) -o $@ $^ -ldl -DNOTHREADS -DM64
 
+
+pfbwtSANT.x: pfbwt_sa_only.cpp gsa/gsacak.o utils.o malloc_count.o
+	$(CXX) $(CXX_FLAGS) -o $@ $^ -ldl -DNOTHREADS
+
+# as above for large files
+pfbwtSANT64.x: pfbwt_sa_only.cpp gsa/gsacak64.o utils.o malloc_count.o
+	$(CXX) $(CXX_FLAGS) -o $@ $^ -ldl -DNOTHREADS -DM64
+
+
 unparse: unparse.c utils.o malloc_count.o
 	$(CC) $(CFLAGS) -o $@ $^ -ldl
 
@@ -68,7 +77,7 @@ unparsz: unparsz.c utils.o malloc_count.o
 	$(CC) $(CFLAGS) -o $@ $^ -ldl
 
 remap: remap.c
-	$(CC) $(CFLAGS) -o $@ $< -O -g -Wall -lm 
+	$(CC) $(CFLAGS) -o $@ $< -O -g -Wall -lm
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -34,6 +34,11 @@ target_include_directories(check.x PRIVATE ${rimerge-includes})
 target_link_libraries(check.x rimerge ${rimerge-libs})
 target_compile_features(check.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
 
+add_executable(check_sa.x check_sa_values.cpp)
+target_include_directories(check_sa.x PRIVATE ${rimerge-includes})
+target_link_libraries(check_sa.x rimerge ${rimerge-libs})
+target_compile_features(check_sa.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
+
 ################################################################################
 # plain to rle
 
@@ -53,5 +58,5 @@ target_compile_features(stats.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_t
 
 ################################################################################
 # Install
-install(TARGETS rimerge.x stats.x rle.x check.x estw.x rimerge.x cfa.x  RUNTIME DESTINATION ${INSTALL_PATH})
+install(TARGETS rimerge.x stats.x rle.x check.x estw.x rimerge.x cfa.x check_sa.x RUNTIME DESTINATION ${INSTALL_PATH})
 
