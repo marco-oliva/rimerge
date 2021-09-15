@@ -28,9 +28,11 @@ int main(int argc, char **argv)
     
     std::string i_prefix = "";
     std::string o_prefix = "";
+    std::string e_out_path = "";
     
     app.add_option("-i,--input", i_prefix, "Input index prefix")->required();
     app.add_option("-o,--output", o_prefix, "Output files prefix")->required();
+    app.add_option("-e, --extract-seqs-to", e_out_path, "Extract all sequences from index and save them in path");
     app.add_flag_callback("-v,--version",rimerge::Version::print,"Version");
     
     CLI11_PARSE(app, argc, argv);
@@ -78,5 +80,15 @@ int main(int argc, char **argv)
         spdlog::info("No errors in index structure");
     }
     
-    spdlog::info("SA[0]: {} Size: {}", I.samples()[0], I.size());
+    if (e_out_path != "")
+    {
+        std::ofstream out_seqs(e_out_path);
+        for (std::size_t i = 0; i < I.sequences(); i++)
+        {
+            rimerge::string_type ith_sequence = I.get_sequence(i);
+            out_seqs.write((char*) ith_sequence.data(), ith_sequence.size());
+            out_seqs.put('\1');
+        }
+        out_seqs.close();
+    }
 }

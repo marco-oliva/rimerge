@@ -25,6 +25,9 @@ parsebwt_exe64    = os.path.join(dirname, "bwtparse64")
 pfbwtNT_exe       = os.path.join(dirname, "pfbwtNT.x")
 pfbwtNT_exe64       = os.path.join(dirname, "pfbwtNT64.x")
 
+pfbwtSANT_exe       = os.path.join(dirname, "pfbwtSANT.x")
+pfbwtSANT_exe64       = os.path.join(dirname, "pfbwtSANT64.x")
+
 #------------------------------------------------------------
 def remove_file(file_path):
     os.remove(file_path)
@@ -85,6 +88,21 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
     print("Elapsed time: {0:.4f}".format(time.time()-start));
 
     # ----------- compute final BWT using dictionary and BWT of parse
+    start = time.time()
+    if(os.path.getsize(input_prefix + ".dict") >=  (2**31-4) ):
+        # 64 bit version with and without threads
+        command = "{exe} -w {wsize} {file} -s -e".format(
+            exe = pfbwtNT_exe64, wsize=window_length, file=input_prefix)
+    else:  # 32 bit version
+        command = "{exe} -w {wsize} {file} -s -e".format(
+            exe = pfbwtNT_exe, wsize=window_length, file=input_prefix)
+
+    print("==== Computing final BWT. Command:", command)
+    if(execute_command(command)!=True):
+        sys.exit(1)
+    print("Elapsed time: {0:.4f}".format(time.time()-start))
+
+    # ----------- compute first N samples using dictionary and BWT of parse
     if num_of_sequences == 0:
         print("The number of sequences needs to be specified for now")
         sys.exit(1)
@@ -92,13 +110,13 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
     start = time.time()
     if(os.path.getsize(input_prefix + ".dict") >=  (2**31-4) ):
         # 64 bit version with and without threads
-        command = "{exe} -N {N} -w {wsize} {file} -s -e".format(
-            exe = pfbwtNT_exe64, wsize=window_length, file=input_prefix, N=num_of_sequences)
+        command = "{exe} -N {N} -w {wsize} {file}".format(
+            exe = pfbwtSANT_exe64, wsize=window_length, file=input_prefix, N=num_of_sequences)
     else:  # 32 bit version
-        command = "{exe} -N {N} -w {wsize} {file} -s -e".format(
-            exe = pfbwtNT_exe, wsize=window_length, file=input_prefix, N=num_of_sequences)
+        command = "{exe} -N {N} -w {wsize} {file}".format(
+            exe = pfbwtSANT_exe, wsize=window_length, file=input_prefix, N=num_of_sequences)
 
-    print("==== Computing final BWT. Command:", command)
+    print("==== Computing first N SA samples. Command:", command)
     if(execute_command(command)!=True):
         sys.exit(1)
     print("Elapsed time: {0:.4f}".format(time.time()-start))

@@ -64,7 +64,7 @@ constexpr size_type BILLION      = 1000 * MILLION;
 
 constexpr byte_type IMPL_TERMINATOR   = 0;
 constexpr byte_type DATA_TERMINATOR   = 1;
-constexpr byte_type STRING_TERMINATOR = 3;
+constexpr byte_type STRING_TERMINATOR = 4;
 
 //------------------------------------------------------------------------------
 
@@ -72,8 +72,8 @@ class RLEString
 {
 
 public:
-    
-    //------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------
     
     class Metadata
     {
@@ -427,7 +427,8 @@ uint32_t *istart, long dwords) // starting point in ilist for each word and # wo
         vector<uint8_t> char2write(1,d[sa[i]-1]);
         while(next<dsize && lcp[next]>=suffixLen) {
             assert(lcp[next]==suffixLen);  // the lcp cannot be greater than suffixLen
-            assert(sa[next]>0 && d[sa[next]-1]!=EndOfWord); // sa[next] cannot be a full word
+            assert(sa[next]>0);
+            assert(d[sa[next]-1]!=EndOfWord); // sa[next] cannot be a full word
             int_t nextsuffixLen = getlen(sa[next],eos,dwords,&seqid);
             assert(nextsuffixLen>=suffixLen);
             if(nextsuffixLen==suffixLen) {

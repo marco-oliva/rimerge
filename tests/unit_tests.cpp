@@ -346,6 +346,7 @@ TEST(TwoStrings, Rimerge)
     rimerge::MergeParameters merge_parameters;
     merge_parameters.setMergeJobs(1);
     merge_parameters.setMergeBuffers(1);
+    merge_parameters.setSearchJobs(1);
     merge_parameters.out_prefix = testfiles_dir + "/rm";
     rimerge::RIndex<RIndexType, BWTType>::merge(r1, r2, merge_parameters);
     

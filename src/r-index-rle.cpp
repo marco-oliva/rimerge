@@ -134,7 +134,11 @@ RIndexRLE::get_sequence(size_type i) const
 {
     string_type out; out.push_back(bwt_[i]);
     size_type j = LF(i);
-    while (bwt_[j] != DATA_TERMINATOR and bwt_[j] != STRING_TERMINATOR) { out.push_back(bwt_[j]); j = LF(j); }
+    while (bwt_[j] != DATA_TERMINATOR and bwt_[j] != STRING_TERMINATOR)
+    {
+        out.push_back(bwt_[j]);
+        j = LF(j);
+    }
     std::reverse(out.begin(), out.end());
     return out;
 }

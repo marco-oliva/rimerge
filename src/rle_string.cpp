@@ -110,6 +110,8 @@ RLEString::RLEncoder::append(byte_type c)
 
 RLEString::RLEDecoder::RLEDecoder(std::string path) : in_stream(path)
 {
+    if (not in_stream.is_open()) { spdlog::error("Can't open {}", path); std::exit(EXIT_FAILURE); }
+    
     // read metadata
     metadata.init(path + ".meta", Metadata::read_tag());
 }

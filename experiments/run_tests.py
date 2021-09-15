@@ -15,6 +15,7 @@ Testing script
 dirname = os.path.dirname(os.path.abspath(__file__))
 rimerge_exe     =  os.path.join(dirname, "rimerge.x")
 check_exe       =  os.path.join(dirname, "check.x")
+check_sa_exe    = os.path.join(dirname, "check_sa.x")
 estw_exe        =  os.path.join(dirname, "estw.x")
 rle_exe         =  os.path.join(dirname, "rle.x")
 bigbwt_exe      =  os.path.join(dirname, "bigbwt")
@@ -193,6 +194,8 @@ def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
     if (check):
         command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=profiler, i_prefix=input_prefix, check=check_exe)
         execute_command(command)
+        command = "{} -i {}".format(check_sa_exe, input_prefix)
+        execute_command(command)
 
     return input_prefix
 
@@ -273,6 +276,8 @@ def main():
             run_merge(args.output, indexes[i], args.output, args.check, args.merge_jobs, args.search_jobs)
             if (args.check):
                 command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
+                execute_command(command)
+                command = "{} -i {}".format(check_sa_exe, args.output)
                 execute_command(command)
 
 if __name__ == '__main__':

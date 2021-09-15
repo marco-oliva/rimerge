@@ -11,6 +11,7 @@
 #include <rimerge/utils.hpp>
 #include <rimerge/rle_string.hpp>
 #include <rimerge/version.hpp>
+#include <rimerge/r-index-rle.hpp>
 
 
 int main(int argc, char **argv)
@@ -19,26 +20,27 @@ int main(int argc, char **argv)
     
     CLI::App app("rle");
     
-    std::string e_prefix = "";
-    std::string d_prefix = "";
+    std::string  e_path = "";
+    std::string  d_path = "";
+    std::string ex_path = "";
 
-    app.add_option("-i,--input", e_prefix, "Input bwt")->configurable();
-    app.add_option("-d, --decode", d_prefix, "Input rle")->configurable();
+    app.add_option("-i,--input", e_path, "Input bwt")->configurable();
+    app.add_option("-d, --decode", d_path, "Input rle")->configurable();
     app.add_flag_callback("-v,--version", rimerge::Version::print,"Version");
     app.set_config("--configure");
     app.allow_windows_style_options();
 
     CLI11_PARSE(app, argc, argv);
 
-    if (e_prefix != "")
+    if (e_path != "")
     {
-        spdlog::info("Input: {}", e_prefix);
+        spdlog::info("Input: {}", e_path);
         spdlog::info("Encoding RLE");
-        mio::mmap_source bwt(e_prefix + ".bwt");
+        mio::mmap_source bwt(e_path);
         rimerge::byte_type* start = (rimerge::byte_type*) bwt.data();
         rimerge::byte_type* end   = start + bwt.size();
 
-        rimerge::RLEString::RLEncoder encoder(e_prefix + ".rle");
+        rimerge::RLEString::RLEncoder encoder(e_path + ".rle");
         rimerge::byte_type* it = start; rimerge::byte_type to_ins;
         while (it != end)
         {
@@ -50,13 +52,13 @@ int main(int argc, char **argv)
 
         return 0;
     }
-    else if (d_prefix != "")
+    else if (d_path != "")
     {
-        spdlog::info("Input: {}", d_prefix);
+        spdlog::info("Input: {}", d_path);
         spdlog::info("Decoding RLE");
-        rimerge::RLEString::RLEDecoder decoder(d_prefix + ".rle");
+        rimerge::RLEString::RLEDecoder decoder(d_path);
 
-        std::ofstream out_file(d_prefix + ".bwt");
+        std::ofstream out_file(d_path + ".ext");
         while (not decoder.end())
         {
             rimerge::RunType run = decoder.next();
@@ -74,6 +76,6 @@ int main(int argc, char **argv)
     }
     else
     {
-        spdlog::error("Specify either --input or --decode");
+        spdlog::error("Specify --input, --decode or --extract-sequences");
     }
 }
