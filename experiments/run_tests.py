@@ -278,7 +278,7 @@ def main():
                 command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
                 execute_command(command)
                 command = "{} -i {}".format(check_sa_exe, args.output)
-                execute_command(command)
+                #execute_command(command)
 
 if __name__ == '__main__':
     main()
