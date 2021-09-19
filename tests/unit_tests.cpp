@@ -339,7 +339,7 @@ TEST(TwoStrings, Rimerge)
     typedef rimerge::RIndexRLE RIndexType;
     typedef rimerge::RLEString BWTType;
     
-    for (std::size_t i = 0; i < 100; i++)
+    for (std::size_t i = 0; i < 1; i++)
     {
         // Generate two random r-indxes
     
