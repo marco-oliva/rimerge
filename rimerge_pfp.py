@@ -16,6 +16,7 @@ dirname         = os.path.dirname(os.path.abspath(__file__))
 rimerge_exe     = os.path.join(dirname, "rimerge.x")
 estw_exe        = os.path.join(dirname, "estw.x")
 check_exe       = os.path.join(dirname, "check.x")
+check_sa_exe    = os.path.join(dirname, "check_sa.x")
 rle_exe         = os.path.join(dirname, "rle.x")
 cfa_exe         = os.path.join(dirname, "cfa.x")
 
@@ -138,6 +139,12 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
     os.replace(input_prefix + ".rlebwt.meta", input_prefix + "_idx" + "/bwt.rle.meta")
     os.replace(input_prefix + ".saes", input_prefix + "_idx" + "/samples.saes")
 
+    if (check):
+        command = "{profiler} {check} -i {i_prefix}_idx -o {i_prefix}_errors".format(profiler=profiler, i_prefix=input_prefix, check=check_exe)
+        execute_command(command)
+        command = "{} -i {}".format(check_sa_exe, input_prefix + "_idx")
+        execute_command(command)
+
 #------------------------------------------------------------
 # Run merge
 def run_merge(left_file_path, right_file_path, out_file_path, merge_jobs, search_jobs):
@@ -177,6 +184,8 @@ def main():
 
     if (args.check):
         command = "{} -i {} -o {}".format(check_exe, args.output + "_idx", args.output + "_idx")
+        execute_command(command)
+        command = "{} -i {}".format(check_sa_exe, args.output + "_idx")
         execute_command(command)
 
 if __name__ == '__main__':
