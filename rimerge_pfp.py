@@ -186,7 +186,7 @@ def main():
         command = "{} -i {} -o {}".format(check_exe, args.output + "_idx", args.output + "_idx")
         execute_command(command)
         command = "{} -i {}".format(check_sa_exe, args.output + "_idx")
-        execute_command(command)
+        execute_command(command) 
 
 if __name__ == '__main__':
     main()
