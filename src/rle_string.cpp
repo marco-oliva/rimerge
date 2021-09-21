@@ -43,6 +43,7 @@ RLEString::Metadata::close()
     closed = true;
     
     std::ofstream out(file_path, std::ios::binary);
+    if (not out.is_open()) { spdlog::error("Can't open {}", file_path); std::exit(EXIT_FAILURE); }
     out.write(reinterpret_cast<char*>(&size), sizeof(size_type));
     out.write(reinterpret_cast<char*>(&runs), sizeof(size_type));
     

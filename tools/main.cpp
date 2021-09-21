@@ -50,6 +50,9 @@ int main(int argc, char **argv)
     
     CLI11_PARSE(app, argc, argv);
     
+    // Print out configurations
+    spdlog::info("Current Configuration:\n{}", app.config_to_str(true,true));
+    
     spdlog::info("A: {}", a_prefix);
     spdlog::info("B: {}", b_prefix);
     

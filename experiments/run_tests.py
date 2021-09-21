@@ -272,6 +272,9 @@ def main():
         if (args.check):
             command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
             execute_command(command)
+            if (len(file_paths) == 2):
+                command = "{} -i {}".format(check_sa_exe, args.output)
+                execute_command(command)
         for i in range(2, len(file_paths)):
             run_merge(args.output, indexes[i], args.output, args.check, args.merge_jobs, args.search_jobs)
             if (args.check):
@@ -280,5 +283,5 @@ def main():
                 command = "{} -i {}".format(check_sa_exe, args.output)
                 execute_command(command)
 
-if __name__ == '__main__': 
+if __name__ == '__main__':
     main()

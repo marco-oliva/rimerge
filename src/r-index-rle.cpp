@@ -547,6 +547,8 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         
         ProducerBuffer<RankArray> ra(*(buffers.ra[job]));
         
+        spdlog::info("Rank array opend by job {}", job);
+        
         size_type left_iter = (job != 0) ? buffers.job_ranges[job - 1].second : 0;
         
         // Chars from 'right' inserted from other threads.
@@ -573,6 +575,8 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         }
     
         RLEString::RLEncoder& rle_encoder = encoders.get_encoder(job);
+        
+        spdlog::info("Setup completed by job {}", job);
         
         bool tok = true;
         curr_ra = *ra; ++ra; next_ra = *ra;
