@@ -535,6 +535,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
     
     std::string out_path = buffers.parameters.out_prefix + "/bwt.rle";
     RLEString::RLEncoderMerger encoders(out_path, buffers.job_ranges.size());
+    spdlog::info("RLEncoderMetger set up");
     
     // Merge the indices
     #pragma omp parallel for schedule(static)
