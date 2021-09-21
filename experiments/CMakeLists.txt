@@ -41,3 +41,4 @@ ExternalProject_Add(pfp
         INSTALL_COMMAND "")
 ExternalProject_Get_property(pfp INSTALL_DIR)
 install(PROGRAMS  ${INSTALL_DIR}/src/pfp-build/pfp++ DESTINATION ${INSTALL_PATH})
+install(PROGRAMS  ${INSTALL_DIR}/src/pfp-build/AuPair DESTINATION ${INSTALL_PATH})

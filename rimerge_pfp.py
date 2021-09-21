@@ -69,7 +69,7 @@ def execute_command(command, seconds = 100000000):
 
 #------------------------------------------------------------
 # Run BigBWT
-def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
+def build_rindex(input_prefix, window_length, modulo, num_of_sequences, check):
     # ----------- computation of the BWT of the parsing
     start = time.time()
     parse_size = os.path.getsize(input_prefix + ".parse")/4
@@ -140,7 +140,7 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences):
     os.replace(input_prefix + ".saes", input_prefix + "_idx" + "/samples.saes")
 
     if (check):
-        command = "{profiler} {check} -i {i_prefix}_idx -o {i_prefix}_errors".format(profiler=profiler, i_prefix=input_prefix, check=check_exe)
+        command = "{check} -i {i_prefix}_idx -o {i_prefix}_errors".format(i_prefix=input_prefix, check=check_exe)
         execute_command(command)
         command = "{} -i {}".format(check_sa_exe, input_prefix + "_idx")
         execute_command(command)
@@ -171,7 +171,7 @@ def main():
     # build index from pfp, A given as an index B given as pfp
     if (args.input_b is None):
         print("Build index")
-        build_rindex(args.input_a, args.window, args.modulo, args.num_of_sequences)
+        build_rindex(args.input_a, args.window, args.modulo, args.num_of_sequences, args.check)
     else:
         if (not os.path.isdir(args.input_b + "_idx")):
             print("Build index of {}".format(args.input_b))
@@ -186,7 +186,7 @@ def main():
         command = "{} -i {} -o {}".format(check_exe, args.output + "_idx", args.output + "_idx")
         execute_command(command)
         command = "{} -i {}".format(check_sa_exe, args.output + "_idx")
-        execute_command(command) 
+        execute_command(command)
 
 if __name__ == '__main__':
     main()

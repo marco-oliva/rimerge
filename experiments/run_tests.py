@@ -20,6 +20,7 @@ estw_exe        =  os.path.join(dirname, "estw.x")
 rle_exe         =  os.path.join(dirname, "rle.x")
 bigbwt_exe      =  os.path.join(dirname, "bigbwt")
 pfp_exe         =  os.path.join(dirname, "pfp++")
+aupair_exe         =  os.path.join(dirname, "AuPair")
 
 parsebwt_exe    = os.path.join(dirname, "bwtparse")
 parsebwt_exe64    = os.path.join(dirname, "bwtparse64")
@@ -121,6 +122,9 @@ def build_rindex(file_path, num_of_sequences, window_length, modulo, check):
     input_prefix = os.path.basename(os.path.splitext(file_path)[0])
     command = "{profiler} {pfp} -f {file} -p {mod} -w {win} -o {out}".format(out=input_prefix, profiler=profiler, file=file_path, pfp=pfp_exe, mod=modulo, win=window_length)
     execute_command(command)
+    command = "{profiler} {aupair} -w {win} -i {input} -o {out}".format(profiler=profiler, input=input_prefix, out=input_prefix + ".aup.deleted_ts", aupair=aupair_exe, mod=modulo, win=window_length)
+    execute_command(command)
+    input_prefix = input_prefix + ".aup"
 
     # ----------- computation of the BWT of the parsing
     start = time.time()
@@ -205,7 +209,6 @@ def run_merge(left_file_path, right_file_path, out_file_path, check, merge_jobs,
     base_path = ""
     command = "{profiler} {rimerge} -a {left} -b {right} -o {out} -m {mj} -t {sj}".format(profiler=profiler, rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs, sj=search_jobs)
     execute_command(command)
-
 
 #------------------------------------------------------------
 def main():
