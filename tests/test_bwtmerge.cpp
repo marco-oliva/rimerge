@@ -480,7 +480,7 @@ public:
     // Note that this sorts correct_values.
     static void checkBuffer(RankArray& array, std::vector<rank_type>& correct_values, const std::string& test_name)
     {
-        parallelQuickSort(correct_values.begin(), correct_values.end());
+        std::sort(correct_values.begin(), correct_values.end());
         
         bool early_end = false;
         size_type wrong_values = 0, end_at = 0;
@@ -524,20 +524,20 @@ TEST_F(RankArrayTest, BufferedReading)
     RankArray array;
     checkBuffer(array, correct_values, "Empty");
 
-//    // Single file.
-//    std::vector<rank_type> data;
-//    initLargeArray(data);
-//    addFile(array, data);
-//    correct_values.insert(correct_values.end(), data.begin(), data.end());
-//    data.clear();
-//    checkBuffer(array, correct_values, "Single");
-//
-//    // Multiple files.
-//    initLargeArray(data, 0x42424242);
-//    addFile(array, data);
-//    correct_values.insert(correct_values.end(), data.begin(), data.end());
-//    data.clear();
-//    checkBuffer(array, correct_values, "Multiple");
+    // Single file.
+    std::vector<rank_type> data;
+    initLargeArray(data);
+    addFile(array, data);
+    correct_values.insert(correct_values.end(), data.begin(), data.end());
+    data.clear();
+    checkBuffer(array, correct_values, "Single");
+
+    // Multiple files.
+    initLargeArray(data, 0x42424242);
+    addFile(array, data);
+    correct_values.insert(correct_values.end(), data.begin(), data.end());
+    data.clear();
+    checkBuffer(array, correct_values, "Multiple");
 }
 
 TEST_F(RankArrayTest, MergeBuffers)

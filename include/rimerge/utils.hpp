@@ -347,9 +347,9 @@ parallelQuickSort(Iterator first, Iterator last)
 {
     #ifdef __GLIBCXX__
         int nested = omp_get_nested();
-    omp_set_nested(1);
-    __gnu_parallel::sort(first, last, __gnu_parallel::balanced_quicksort_tag());
-    omp_set_nested(nested);
+        omp_set_nested(1);
+        __gnu_parallel::sort(first, last, __gnu_parallel::balanced_quicksort_tag());
+        omp_set_nested(nested);
     #else
         std::sort(first, last);
     #endif

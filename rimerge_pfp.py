@@ -175,7 +175,7 @@ def main():
     else:
         if (not os.path.isdir(args.input_b + "_idx")):
             print("Build index of {}".format(args.input_b))
-            build_rindex(args.input_b, args.window, args.modulo, args.num_of_sequences)
+            build_rindex(args.input_b, args.window, args.modulo, args.num_of_sequences, args.check)
         else:
             print("input_b is already an index, not re-computing")
         print("Start merging")

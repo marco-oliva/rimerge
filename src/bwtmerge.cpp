@@ -460,8 +460,8 @@ merge_buffers(params.merge_buffers),
 job_ranges(node_ranges), ra(node_ranges.size(), nullptr),
 ra_values(0), ra_bytes(0), final_size(expected_size),
 max_values_threads(num_threads), max_values(node_ranges.size(), 0),
-min_values_threads(num_threads), min_values(node_ranges.size(), std::numeric_limits<size_type>::max())
-
+min_values_threads(num_threads), min_values(node_ranges.size(), std::numeric_limits<size_type>::max()),
+inserted_values_count_per_thread(num_threads, 0)
 {
     for(size_type i = 0; i < this->ra.size(); i++)
     {
@@ -486,6 +486,10 @@ MergeBuffers::~MergeBuffers()
 void
 MergeBuffers::flush()
 {
+    std::size_t inserted_values_count = 0;
+    for (auto& count : this->inserted_values_count_per_thread) {inserted_values_count += count; }
+    spdlog::info("MergeBuffers::flush(): Wrote {} values in MergeBuffers by {} threads", inserted_values_count, inserted_values_count_per_thread.size());
+    
     // First insert all thread-specific buffers.
     #pragma omp parallel for schedule(static, 1)
     for(size_type thread = 0; thread < this->threads(); thread++)

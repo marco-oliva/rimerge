@@ -220,6 +220,8 @@ namespace TempFile
     {
         if(!(filename.empty()))
         {
+            std::lock_guard<std::mutex> lockguard(lock); // may be not needed
+            
             std::remove(filename.c_str());
             handler.filenames.erase(filename);
             filename.clear();
