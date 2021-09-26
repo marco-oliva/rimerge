@@ -208,7 +208,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in left_updates! {} 1 {}", ra_value, inserting_index); /* std::exit(EXIT_FAILURE); */
+                spdlog::error("Sample missing in left_updates! {} 1 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         LFL = true; LLI = index;
@@ -232,7 +232,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in left_updates! {} 2 {}", prev_ra_value, inserting_index); /* std::exit(EXIT_FAILURE); */
+                spdlog::error("Sample missing in left_updates! {} 2 {}", prev_ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         else if ((index == ra_value - 1) and left_cache[index] != right_cache[LRI + 1])
@@ -251,7 +251,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in left_updates! {} 3 {}", ra_value, inserting_index); /* std::exit(EXIT_FAILURE); */
+                spdlog::error("Sample missing in left_updates! {} 3 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         else if ( (index != ra_value - 1) and (its & SG::END) )
@@ -293,7 +293,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else if (down == updates.end_right())
             {
-                spdlog::error("Sample missing in right updates! {} 4 {}", ra_value, inserting_index); /* std::exit(EXIT_FAILURE); */
+                spdlog::error("Sample missing in right updates! {} 4 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         
@@ -331,7 +331,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in right_updates! {} 5 {}", ra_value, inserting_index); /* std::exit(EXIT_FAILURE); */
+                spdlog::error("Sample missing in right_updates! {} 5 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         else if ( (ra_value != next_ra_value) and (right_cache[index] != left_cache[LLI + 1]) )
@@ -345,7 +345,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in right_updates! {} 6 {}", ra_value, inserting_index); /* std::exit(EXIT_FAILURE); */
+                spdlog::error("Sample missing in right_updates! {} 6 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         LFL = false; LRI = index;
@@ -535,7 +535,6 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
     
     std::string out_path = buffers.parameters.out_prefix + "/bwt.rle";
     RLEString::RLEncoderMerger encoders(out_path, buffers.job_ranges.size());
-    spdlog::info("RLEncoderMetger set up");
     
     // Merge the indices
     #pragma omp parallel for schedule(static)
@@ -547,8 +546,6 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         if (not saes.is_open()) { spdlog::error("Can't open tmp file: {}", base_path + ".saes"); std::exit(EXIT_FAILURE); }
         
         ProducerBuffer<RankArray> ra(*(buffers.ra[job]));
-        
-        spdlog::info("Rank array opend by job {}", job);
         
         size_type left_iter = (job != 0) ? buffers.job_ranges[job - 1].second : 0;
         
@@ -571,20 +568,18 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         if (job != 0)
         {
             size_type prev_max = buffers.max_values[job - 1];
-            sample_merger.set_LFL(prev_max < buffers.job_ranges[job - 1].second);
+            sample_merger.set_LFL(not (prev_max == (buffers.job_ranges[job - 1].second)));
             prev_ra = prev_max;
         }
     
         RLEString::RLEncoder& rle_encoder = encoders.get_encoder(job);
-        
-        spdlog::info("Setup completed by job {}", job);
         
         bool tok = true;
         curr_ra = *ra; ++ra; next_ra = *ra;
         while (curr_ra != invalid_value())
         {
             // Add from 'left'
-            while (left_iter < curr_ra) // curr_ra = 105
+            while (left_iter < curr_ra)
             {
                 rle_encoder(left_cache[left_iter]);
                 sample_merger(left_iter, right_cache, left_cache, true, left_iter + right_iter, curr_ra, prev_ra, next_ra);
@@ -716,10 +711,34 @@ RIndexRLE::check(const RIndex<RIndexRLE, RLEString>& index, std::tuple<std::vect
     return std::get<0>(errors).size() == 0 and std::get<2>(errors).size() == 0;
 }
 
-bool
-RIndexRLE::check_values(const RIndex<RIndexRLE, RLEString>& index, std::vector<size_type>& errors)
+std::size_t
+RIndexRLE::check_sa_values(const RIndex<RIndexRLE, RLEString>& index)
 {
-   return false;
+    std::mutex num_of_errors_mtx;
+    std::size_t num_of_errors;
+    
+    #pragma omp parallel for
+    for (rimerge::size_type seq = 0; seq < index.sequences(); seq++)
+    {
+        rimerge::size_type pos = seq, sa_value = index.samples()[seq];
+        spdlog::info("SA[{}] = {}", seq, sa_value);
+        std::size_t per_thread_errors = 0;
+        while (index.bwt()[pos] != rimerge::STRING_TERMINATOR)
+        {
+            if (index.its(pos) and index.samples()[pos] != sa_value) { per_thread_errors++; }
+            
+            pos = index.LF(pos);
+            sa_value -= 1;
+        }
+        
+        // update global errors
+        {
+            std::lock_guard<std::mutex> lock(num_of_errors_mtx);
+            num_of_errors += per_thread_errors;
+        }
+    }
+    
+    return num_of_errors;
 }
 
 }

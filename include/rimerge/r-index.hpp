@@ -53,6 +53,8 @@ public:
             spdlog::info("Creating {} left maps and {} right maps", left_samples.size(), right_samples.size());
         }
         
+        ~SAUpdates() {}
+        
     public:
     
         const right_type& end_right() const {return this->end_right_; }
@@ -164,11 +166,7 @@ public:
         SamplesMerger(const RIndex<Derived, BWT>& r, const RIndex<Derived, BWT>& l, std::ofstream* ss, const SAUpdates& u)
         : left(l), right(r), updates(u), saes(ss), LFL(false), LRI(0), LLI(0) {}
     
-        ~SamplesMerger()
-        {
-            if (Verbosity::level >= Verbosity::FULL)
-                spdlog::info("Counter Left: {}  Counter Right: {}", counter_left, counter_right);
-        }
+        ~SamplesMerger() {}
         
     public:
     
@@ -245,7 +243,7 @@ public:
     // backward navigation of the BWT
     size_type LF(size_type i, byte_type c) const { return this->self().LF(i, c); }
     
-    // backward navigation of the BWt, range
+    // backward navigation of the BWT, range
     range_type LF(range_type rn, byte_type c) const { return this->self().LF(rn, c); }
     
     // forward navigation of the BWT
@@ -267,6 +265,12 @@ public:
     static bool check(const RIndex<Derived, BWT>& index, std::tuple<std::vector<size_type>, std::vector<size_type>, std::vector<size_type>>& errors)
     {
         return Derived::check(index, errors);
+    }
+    
+    // Check if the structure of the index is correct
+    static std::size_t check_sa_values(const RIndex<Derived, BWT>& index)
+    {
+        return Derived::check_sa_values(index);
     }
     
 protected:

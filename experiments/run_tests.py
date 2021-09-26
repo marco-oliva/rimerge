@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import sys, time, argparse, subprocess, os, signal, random, string, errno
+from datetime import datetime
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Seq import MutableSeq
+
+random.seed(datetime.now())
 
 Description = """
 Testing script
@@ -67,6 +70,8 @@ def split(input_file, output_dir, seqs=1, blocks=1, ignore=0):
 #------------------------------------------------------------
 # Generate random fasta file
 def generate_random_fasta(num_of_sequences, length, error_rate = 0.15):
+    print("Generating random fasta, {} sequences of {} bases each".format(num_of_sequences, length))
+    random.seed(datetime.now())
     sequences=[]
     origin_seq = ''.join(random.choices("ACGTN", k = length))
     for i in range(0, num_of_sequences):

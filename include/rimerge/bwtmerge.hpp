@@ -588,8 +588,8 @@ public:
         //////////////////////////////
         this->inserted_values_count_per_thread[thread] += 1;
         size_type range = Range::bin(element, job_ranges);
-        this->max_values_threads[thread][range] = (element > max_values_threads[thread][range]) ? element : max_values_threads[thread][range];
-        this->min_values_threads[thread][range] = (element < min_values_threads[thread][range]) ? element : min_values_threads[thread][range];
+        if (element > max_values_threads[thread][range]) { max_values_threads[thread][range] = element; }
+        if (element < min_values_threads[thread][range]) { min_values_threads[thread][range] = element; }
         //////////////////////////////
         this->pos_buffers[thread].push_back(element);
         if(this->pos_buffers[thread].size() >= this->parameters.posBufferPositions())

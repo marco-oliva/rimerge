@@ -44,21 +44,8 @@ int main(int argc, char **argv)
     spdlog::info("Start checking SA values");
     
     rimerge::size_type errors = 0;
-    for (rimerge::size_type seq = 0; seq < I.sequences(); seq++)
-    {
-        rimerge::size_type pos = seq, sa_value = I.samples()[seq];
-        spdlog::info("SA[{}] = {}", seq, sa_value);
-        while (I.bwt()[pos] != rimerge::STRING_TERMINATOR)
-        {
-            if (I.its(pos) and I.samples()[pos] != sa_value)
-            {
-                spdlog::error("Error on {}, exepcted {} got {}", pos, sa_value, I.samples()[pos]); errors++;
-            }
+    errors = rimerge::RIndex<rimerge::RIndexRLE, rimerge::RLEString>::check_sa_values(I);
     
-            pos = I.LF(pos);
-            sa_value -= 1;
-        }
-    }
-    
-    spdlog::info("Errors: {}", errors);
+    if (errors != 0) { spdlog::error("Errors: {}", errors); }
+    else { spdlog::info("Errors: {}", errors); }
 }

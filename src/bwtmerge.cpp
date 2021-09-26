@@ -518,8 +518,8 @@ MergeBuffers::flush()
             rank_type element_max = max_values_threads[t][range];
             rank_type element_min = min_values_threads[t][range];
             
-            this->max_values[range] = (element_max > max_values[range]) ? element_max : max_values[range];
-            this->min_values[range] = (element_min < min_values[range]) ? element_min : min_values[range];
+            if (element_max > max_values[range]) { max_values[range] = element_max; }
+            if (element_min < min_values[range]) { min_values[range] = element_min; }
         }
     }
     
