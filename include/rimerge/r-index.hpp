@@ -164,7 +164,7 @@ public:
         size_type LRI = 0; size_type LLI = 0; // last right index and last left index
         
         SamplesMerger(const RIndex<Derived, BWT>& r, const RIndex<Derived, BWT>& l, std::ofstream* ss, const SAUpdates& u)
-        : left(l), right(r), updates(u), saes(ss), LFL(false), LRI(0), LLI(0) {}
+        : left(l), right(r), updates(u), saes(ss), LFL(true), LRI(0), LLI(0) {}
     
         ~SamplesMerger() {}
         

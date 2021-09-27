@@ -53,7 +53,7 @@ public:
     {
     public:
     
-        SamplesMergerRLE(const RIndex<RIndexRLE, RLEString>& r, const RIndex<RIndexRLE, RLEString>& l, std::ofstream* ss, const SAUpdatesRLE& u) :RIndex<RIndexRLE, RLEString>::SamplesMerger(r, l, ss, u) {}
+        SamplesMergerRLE(const RIndex<RIndexRLE, RLEString>& r, const RIndex<RIndexRLE, RLEString>& l, std::ofstream* ss, const SAUpdatesRLE& u) : RIndex<RIndexRLE, RLEString>::SamplesMerger(r, l, ss, u) {}
         
         void operator()(size_type index, RLEString::RunCache& right_cache, RLEString::RunCache& left_cache, bool FL, size_type inserting_index, size_type ra_value, size_type prev_ra_value, size_type next_ra_value);
     };

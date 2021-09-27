@@ -148,13 +148,14 @@ void
 RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& right_cache, RLEString::RunCache& left_cache, bool FL, size_type inserting_index, size_type ra_value, size_type prev_ra_value, size_type next_ra_value)
 {
     using SG = sample_genre;
+    int thread_id = omp_get_thread_num();
     
     SA_samples::sample_type sample;
     
     if (inserting_index == (left.sequences() + right.sequences()))
     {
-        if (FL) { sample = {inserting_index, left.samples()[index]}; }
-        else { sample = {inserting_index, right.samples()[index] + left.size()}; }
+        if (FL) { sample = {inserting_index, left.samples()[index]}; LFL = true; LLI = index; }
+        else { sample = {inserting_index, right.samples()[index] + left.size()}; LFL = false; LRI = index; }
         SA_samples::write(sample, saes);
     }
     if (FL and index < left.sequences()) // first samples from left
@@ -208,7 +209,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in left_updates! {} 1 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
+                spdlog::error("Job: {} Sample missing in left_updates! {} 1 {}", thread_id, ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         LFL = true; LLI = index;
@@ -232,7 +233,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in left_updates! {} 2 {}", prev_ra_value, inserting_index);  std::exit(EXIT_FAILURE);
+                spdlog::error("Job: {} Sample missing in left_updates! {} 2 {}", thread_id, prev_ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         else if ((index == ra_value - 1) and left_cache[index] != right_cache[LRI + 1])
@@ -251,7 +252,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in left_updates! {} 3 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
+                spdlog::error("Job: {} Sample missing in left_updates! {} 3 {}", thread_id, ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         else if ( (index != ra_value - 1) and (its & SG::END) )
@@ -293,10 +294,9 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else if (down == updates.end_right())
             {
-                spdlog::error("Sample missing in right updates! {} 4 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
+                spdlog::error("Job: {} Sample missing in right updates! {} 4 {}", thread_id, ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
-        
         LFL = false; LRI = index;
     }
     else if (not FL and LFL)
@@ -331,7 +331,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in right_updates! {} 5 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
+                spdlog::error("Job: {} Sample missing in right_updates! {} 5 {}", thread_id, ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         else if ( (ra_value != next_ra_value) and (right_cache[index] != left_cache[LLI + 1]) )
@@ -345,7 +345,7 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
             }
             else
             {
-                spdlog::error("Sample missing in right_updates! {} 6 {}", ra_value, inserting_index);  std::exit(EXIT_FAILURE);
+                spdlog::error("Job: {} Sample missing in right_updates! {} 6 {}", thread_id, ra_value, inserting_index);  std::exit(EXIT_FAILURE);
             }
         }
         LFL = false; LRI = index;
@@ -565,12 +565,23 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         RLEString::RunCache right_cache(right.bwt());
         RLEString::RunCache left_cache(left.bwt());
         
+        bool lfl_test = true;
         if (job != 0)
         {
             size_type prev_max = buffers.max_values[job - 1];
-            sample_merger.set_LFL(not (prev_max == (buffers.job_ranges[job - 1].second)));
+            if (prev_max == buffers.job_ranges[job - 1].second)
+            {
+                spdlog::debug("prev_max == buffers.job_ranges[job - 1].second [pm {}, j {}, li {}, ri {}]",
+                             prev_max, job, left_iter, right_iter);
+                sample_merger.set_LFL(false);
+                lfl_test = false;
+            }
             prev_ra = prev_max;
         }
+     
+        spdlog::debug("Job: {} Left Range: [{},{}] left_iter: {} right_iter: {}",
+                     job, buffers.job_ranges[job].first,
+                     buffers.job_ranges[job].second, left_iter, right_iter);
     
         RLEString::RLEncoder& rle_encoder = encoders.get_encoder(job);
         
@@ -607,6 +618,8 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             sample_merger(left_iter, right_cache, left_cache, true, left_iter + right_iter, curr_ra, prev_ra, next_ra);
             ++left_iter;
         }
+        
+        spdlog::debug("Last left inserted by {}: {}", job, left_iter);
         
         // Close files
         saes.close();
