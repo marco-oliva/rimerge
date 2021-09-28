@@ -537,7 +537,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
     RLEString::RLEncoderMerger encoders(out_path, buffers.job_ranges.size());
     
     // Merge the indices
-    #pragma omp parallel for schedule(static)
+    //#pragma omp parallel for schedule(static)
     for (size_type job = 0; job < buffers.job_ranges.size(); job++)
     {
         // Output
@@ -556,6 +556,9 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             right_iter += std::accumulate(buffers.ra[i]->value_counts.begin(), buffers.ra[i]->value_counts.end(), 0);
         }
         
+        size_type elements_in_current_range = std::accumulate(buffers.ra[job]->value_counts.begin(), buffers.ra[job]->value_counts.end(), 0);
+        spdlog::info("Job {} Elements in current range: {}", job, elements_in_current_range);
+        
         size_type prev_ra = 0, next_ra = 0, curr_ra = 0;
         
         RIndexRLE::SamplesMergerRLE sample_merger(right, left, &saes, sa_updates);
@@ -565,7 +568,6 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         RLEString::RunCache right_cache(right.bwt());
         RLEString::RunCache left_cache(left.bwt());
         
-        bool lfl_test = true;
         if (job != 0)
         {
             size_type prev_max = buffers.max_values[job - 1];
@@ -574,7 +576,6 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
                 spdlog::info("prev_max == buffers.job_ranges[job - 1].second [pm {}, j {}, li {}, ri {}]",
                              prev_max, job, left_iter, right_iter);
                 sample_merger.set_LFL(false);
-                lfl_test = false;
             }
             prev_ra = prev_max;
         }
@@ -587,6 +588,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         
         bool tok = true;
         curr_ra = *ra; ++ra; next_ra = *ra;
+        if (curr_ra == invalid_value()) {}
         while (curr_ra != invalid_value())
         {
             // Add from 'left'
@@ -619,7 +621,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             ++left_iter;
         }
         
-        spdlog::info("Last left inserted by {}: {}", job, left_iter);
+        spdlog::info("Last left inserted by {}: {}", job, left_iter - 1);
         
         // Close files
         saes.close();
