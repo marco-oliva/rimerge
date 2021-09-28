@@ -571,7 +571,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             size_type prev_max = buffers.max_values[job - 1];
             if (prev_max == buffers.job_ranges[job - 1].second)
             {
-                spdlog::debug("prev_max == buffers.job_ranges[job - 1].second [pm {}, j {}, li {}, ri {}]",
+                spdlog::info("prev_max == buffers.job_ranges[job - 1].second [pm {}, j {}, li {}, ri {}]",
                              prev_max, job, left_iter, right_iter);
                 sample_merger.set_LFL(false);
                 lfl_test = false;
@@ -579,7 +579,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             prev_ra = prev_max;
         }
      
-        spdlog::debug("Job: {} Left Range: [{},{}] left_iter: {} right_iter: {}",
+        spdlog::info("Job: {} Left Range: [{},{}] left_iter: {} right_iter: {}",
                      job, buffers.job_ranges[job].first,
                      buffers.job_ranges[job].second, left_iter, right_iter);
     
@@ -619,7 +619,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             ++left_iter;
         }
         
-        spdlog::debug("Last left inserted by {}: {}", job, left_iter);
+        spdlog::info("Last left inserted by {}: {}", job, left_iter);
         
         // Close files
         saes.close();
