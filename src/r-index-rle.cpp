@@ -537,7 +537,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
     RLEString::RLEncoderMerger encoders(out_path, buffers.job_ranges.size());
     
     // Merge the indices
-    #pragma omp parallel for schedule(static)
+    //#pragma omp parallel for schedule(static)
     for (size_type job = 0; job < buffers.job_ranges.size(); job++)
     {
         // Output
@@ -579,16 +579,16 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             }
             prev_ra = prev_max;
         }
-     
-        spdlog::info("Job: {} Left Range: [{},{}] left_iter: {} right_iter: {}",
-                     job, buffers.job_ranges[job].first,
-                     buffers.job_ranges[job].second, left_iter, right_iter);
     
         RLEString::RLEncoder& rle_encoder = encoders.get_encoder(job);
         
         bool tok = true;
         curr_ra = *ra; ++ra; next_ra = *ra;
-        if (curr_ra == invalid_value()) {}
+    
+        spdlog::info("Job: {} Left Range: [{},{}] left_iter: {} right_iter: {}, curr_ra: {}, prev_ra: {}",
+                     job, buffers.job_ranges[job].first,
+                     buffers.job_ranges[job].second, left_iter, right_iter, curr_ra, prev_ra);
+        
         while (curr_ra != invalid_value())
         {
             // Add from 'left'
