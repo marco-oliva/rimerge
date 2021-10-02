@@ -564,9 +564,10 @@ public:
     //////////////////////////////
     std::vector<std::vector<rank_type>> max_values_threads;
     std::vector<std::vector<rank_type>> min_values_threads;
+    std::vector<std::vector<size_type>> range_values_threads;
     std::vector<rank_type> max_values;
     std::vector<rank_type> min_values;
-    std::vector<std::size_t> inserted_values_count_per_thread;
+    std::vector<size_type> range_values;
     //////////////////////////////
     
     // Global merge buffers.
@@ -586,8 +587,8 @@ public:
     void insert(rank_type element, size_type thread)
     {
         //////////////////////////////
-        this->inserted_values_count_per_thread[thread] += 1;
         size_type range = Range::bin(element, job_ranges);
+        this->range_values_threads[thread][range] += 1;
         if (element > max_values_threads[thread][range]) { max_values_threads[thread][range] = element; }
         if (element < min_values_threads[thread][range]) { min_values_threads[thread][range] = element; }
         //////////////////////////////

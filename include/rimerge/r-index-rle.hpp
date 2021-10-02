@@ -106,7 +106,6 @@ public:
     // Check samples value
     static std::size_t check_sa_values(const RIndex<RIndexRLE, RLEString>& index);
   
-  
 };
 
 

@@ -254,7 +254,7 @@ public:
 
     // Extract i-th sequence from the index
     string_type get_sequence(size_type i) const {return this->self().get_sequence(i); }
-
+    
     // Merge
     static void merge(const RIndex<Derived, BWT>& left, const RIndex<Derived, BWT>& right, MergeParameters& parameters)
     {

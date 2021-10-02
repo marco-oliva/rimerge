@@ -461,7 +461,7 @@ job_ranges(node_ranges), ra(node_ranges.size(), nullptr),
 ra_values(0), ra_bytes(0), final_size(expected_size),
 max_values_threads(num_threads), max_values(node_ranges.size(), 0),
 min_values_threads(num_threads), min_values(node_ranges.size(), std::numeric_limits<size_type>::max()),
-inserted_values_count_per_thread(num_threads, 0)
+range_values_threads(num_threads), range_values(num_threads, 0)
 {
     for(size_type i = 0; i < this->ra.size(); i++)
     {
@@ -472,6 +472,7 @@ inserted_values_count_per_thread(num_threads, 0)
     {
         this->max_values_threads[i] = std::vector<rank_type>(node_ranges.size(), 0);
         this->min_values_threads[i] = std::vector<rank_type>(node_ranges.size(), std::numeric_limits<size_type>::max());
+        this->range_values_threads[i] = std::vector<size_type>(node_ranges.size(), 0);
     }
 }
 
@@ -486,10 +487,6 @@ MergeBuffers::~MergeBuffers()
 void
 MergeBuffers::flush()
 {
-    std::size_t inserted_values_count = 0;
-    for (auto& count : this->inserted_values_count_per_thread) {inserted_values_count += count; }
-    spdlog::info("MergeBuffers::flush(): Wrote {} values in MergeBuffers by {} threads", inserted_values_count, inserted_values_count_per_thread.size());
-    
     // First insert all thread-specific buffers.
     #pragma omp parallel for schedule(static, 1)
     for(size_type thread = 0; thread < this->threads(); thread++)
@@ -510,7 +507,7 @@ MergeBuffers::flush()
         spdlog::info("MergeBuffers::flush(): Wrote {} values to disk", buffer_values);
     }
     
-    // Merge max and min values
+    // Merge max/min values and values counts
     for (size_type range = 0; range < min_values.size(); range++)
     {
         for (size_type t = 0; t < thread_buffers.size(); t++)
@@ -520,6 +517,8 @@ MergeBuffers::flush()
             
             if (element_max > max_values[range]) { max_values[range] = element_max; }
             if (element_min < min_values[range]) { min_values[range] = element_min; }
+            
+            range_values[range] += range_values_threads[t][range];
         }
     }
     
