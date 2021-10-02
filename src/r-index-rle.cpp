@@ -600,13 +600,13 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             sample_merger(right_iter, right_cache, left_cache, false, left_iter + right_iter, curr_ra, prev_ra, next_ra);
             
             prev_ra = curr_ra;
-            if (not tok) {curr_ra = invalid_value();}
-            else { curr_ra = next_ra; ++ra;}
+            if (not tok) { curr_ra = invalid_value(); }
+            else { curr_ra = next_ra; ++ra; }
             
             size_type next_range = job + 1;
             while (ra.end() and next_range < buffers.job_ranges.size())
             {
-                if ( std::accumulate(buffers.ra[next_range]->value_counts.begin(), buffers.ra[next_range]->value_counts.end(), 0) != 0 ) { break; }
+                if ( buffers.range_values[next_range] != 0 ) { break; }
                 else { next_range++; }
             }
             
@@ -644,14 +644,14 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
     std::remove(o_saes.c_str());
     std::ofstream out_saes_stream(o_saes);
     
-    for(size_type job = 0; job < buffers.job_ranges.size(); job++)
+    for (size_type job = 0; job < buffers.job_ranges.size(); job++)
     {
         std::string path = buffers.parameters.out_prefix + "/tmp_" + std::to_string(job) + ".saes";
         concatenate_file<byte_type>(out_saes_stream, path);
         std::remove(path.c_str());
     }
     
-    if(Verbosity::level >= Verbosity::BASIC)
+    if (Verbosity::level >= Verbosity::BASIC)
     {
         double seconds = readTimer() - start;
         spdlog::info("Completed sample merge in {} seconds", seconds);
@@ -665,7 +665,7 @@ RIndexRLE::merge(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRL
     
     if (right.empty())
     {
-        if(Verbosity::level >= Verbosity::FULL)
+        if (Verbosity::level >= Verbosity::FULL)
         {
             spdlog::error("rimerge::merge() : The input r-index is empty");
         }
