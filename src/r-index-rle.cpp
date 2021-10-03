@@ -740,7 +740,7 @@ RIndexRLE::check_sa_values(const RIndex<RIndexRLE, RLEString>& index)
     std::mutex num_of_errors_mtx;
     std::size_t num_of_errors;
     
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (rimerge::size_type seq = 0; seq < index.sequences(); seq++)
     {
         rimerge::size_type pos = seq, sa_value = index.samples()[seq];
