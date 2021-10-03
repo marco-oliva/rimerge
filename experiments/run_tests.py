@@ -214,6 +214,11 @@ def run_merge(left_file_path, right_file_path, out_file_path, check, merge_jobs,
     base_path = ""
     command = "{profiler} {rimerge} -a {left} -b {right} -o {out} -m {mj} -t {sj}".format(profiler=profiler, rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs, sj=search_jobs)
     execute_command(command)
+    if (check):
+        command = "{profiler} {check} -i {i_prefix} -o {i_prefix}".format(profiler=profiler, i_prefix=out_file_path, check=check_exe)
+        execute_command(command)
+        command = "{} -i {}".format(check_sa_exe, out_file_path)
+        execute_command(command)
 
 #------------------------------------------------------------
 def main():
@@ -277,19 +282,8 @@ def main():
         print("Output file prefix: {}".format(args.output))
         mkdir_p(args.output)
         run_merge(indexes[0], indexes[1], args.output, args.check, args.merge_jobs, args.search_jobs)
-        if (args.check):
-            command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
-            execute_command(command)
-            if (len(file_paths) == 2):
-                command = "{} -i {}".format(check_sa_exe, args.output)
-                execute_command(command)
         for i in range(2, len(file_paths)):
             run_merge(args.output, indexes[i], args.output, args.check, args.merge_jobs, args.search_jobs)
-            if (args.check):
-                command = "{} -i {} -o {}".format(check_exe, args.output, args.output)
-                execute_command(command)
-                command = "{} -i {}".format(check_sa_exe, args.output)
-                execute_command(command)
 
 if __name__ == '__main__':
     main()

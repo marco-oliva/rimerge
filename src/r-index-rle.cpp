@@ -567,11 +567,16 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         // Set up this job
         size_type prev_ra = 0, next_ra = 0, curr_ra = 0;
         
-        if (job != 0) { prev_ra = buffers.max_values[last_non_empty_ra]; }
-        
         RIndexRLE::SamplesMergerRLE sample_merger(right, left, &saes, sa_updates);
         sample_merger.set_LLI(left_iter == 0 ? 0 : left_iter - 1);
         sample_merger.set_LRI(right_iter == 0 ? 0 : right_iter - 1);
+    
+        if (job != 0)
+        {
+            prev_ra = buffers.max_values[last_non_empty_ra];
+            if (prev_ra == buffers.job_ranges[job - 1].second) { sample_merger.set_LFL(false); }
+            else { sample_merger.set_LFL(true); }
+        }
     
         RLEString::RunCache right_cache(right.bwt());
         RLEString::RunCache left_cache(left.bwt());
@@ -735,7 +740,7 @@ RIndexRLE::check_sa_values(const RIndex<RIndexRLE, RLEString>& index)
     std::mutex num_of_errors_mtx;
     std::size_t num_of_errors;
     
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (rimerge::size_type seq = 0; seq < index.sequences(); seq++)
     {
         rimerge::size_type pos = seq, sa_value = index.samples()[seq];

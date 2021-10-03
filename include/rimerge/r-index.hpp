@@ -160,7 +160,7 @@ public:
         size_type counter_right = 0;
         //////////////////////////////
     
-        bool LFL = false; // last from left
+        bool LFL = true; // last from left
         size_type LRI = 0; size_type LLI = 0; // last right index and last left index
         
         SamplesMerger(const RIndex<Derived, BWT>& r, const RIndex<Derived, BWT>& l, std::ofstream* ss, const SAUpdates& u)
