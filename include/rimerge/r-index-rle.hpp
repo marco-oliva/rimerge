@@ -39,8 +39,8 @@ public:
             for (size_type i = 0; i < right_samples.size(); i++) {elements_right += right_samples[i].first.size(); elements_right += right_samples[i].second.size(); }
             if(Verbosity::level >= Verbosity::FULL)
             {
-                spdlog::info("rimerge::SAUpdatesRLE()::SAUpdatesRLE: {} elements in left map", elements_left);
-                spdlog::info("rimerge::SAUpdatesRLE::SAUpdatesRLE): {} elements in right map", elements_right);
+                spdlog::info("rimerge::SAUpdatesRLE: {} elements in left map", elements_left);
+                spdlog::info("rimerge::SAUpdatesRLE: {} elements in right map", elements_right);
             }
         }
         
