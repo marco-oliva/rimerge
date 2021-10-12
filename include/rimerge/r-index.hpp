@@ -27,7 +27,6 @@ public:
     
     class SAUpdates
     {
-
     public:
         
         //                 RA[j]

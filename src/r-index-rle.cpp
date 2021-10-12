@@ -359,15 +359,13 @@ std::pair<size_type, size_type>
 RIndexRLE::SAUpdatesRLE::update_left(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEString>& right, size_type ra_i, size_type ra_j, std::pair<size_type, size_type> prev_samples, size_type i, size_type j, size_type thread, RLEString::Accessor& right_accessor, RLEString::Accessor& left_accessor)
 {
     left_map_type& thread_map = left_samples[thread];
-
-    std::pair<size_type, size_type> out_samples;
     
     if (thread_map.find(ra_j) == thread_map.end() or thread_map.find(ra_j - 1) == thread_map.end())
     { // samples not alredy computed
         if (((ra_i < (left.size() /*- 1*/)) and left_accessor[ra_i - 1] == left_accessor[ra_i])
         and right_accessor[i] == left_accessor[ra_i])
         {
-            out_samples = std::make_pair(prev_samples.first - 1, prev_samples.second -1);
+            return  std::make_pair(prev_samples.first - 1, prev_samples.second -1);
         }
         else
         { // sample at the beginning of the interruption point
@@ -409,29 +407,13 @@ RIndexRLE::SAUpdatesRLE::update_left(const RIndex<RIndexRLE, RLEString>& left, c
                 while (rank==0);
                 p2 = left.select(0, following);
             }
-            out_samples =  std::make_pair(((left.samples()[p1] - 1) % left.size()), ((left.samples()[p2] - 1) % left.size()));
-        }
-
-        // Breaking a run
-        if ((right_accessor[j] != left_accessor[ra_j - 1]) and (left.its(ra_j - 1) == sample_genre::NOT))
-        {
-            left_samples[thread].insert(std::make_pair(ra_j - 1, out_samples.first));
-            left_samples[thread].insert(std::make_pair(ra_j, out_samples.second));
-        }
-
-        if (((ra_j <= left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1 + 1]))
-            and (left.its(ra_j - 1 + 1) == sample_genre::NOT))
-        {
-            left_samples[thread].insert(std::make_pair(ra_j - 1, out_samples.first));
-            left_samples[thread].insert(std::make_pair(ra_j, out_samples.second));
+            return std::make_pair(((left.samples()[p1] - 1) % left.size()), ((left.samples()[p2] - 1) % left.size()));
         }
     }
     else //sample in map
     {
-        out_samples = std::make_pair(thread_map.find(ra_j - 1)->second, thread_map.find(ra_j)->second);
+        return std::make_pair(thread_map.find(ra_j - 1)->second, thread_map.find(ra_j)->second);
     }
-
-    return out_samples;
 }
 
 void
@@ -498,6 +480,8 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
         buffers.insert(ra_i, thread);
         
         std::pair<size_type, size_type> prev_samples = std::make_pair(left.samples()[ra_i -1], left.samples()[ra_i]);
+        sa_updates.left_samples[thread].insert(std::make_pair((ra_i - 1), prev_samples.first));
+        sa_updates.left_samples[thread].insert(std::make_pair((ra_i), prev_samples.second));
         spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence , i, char(right_accessor[i]), i, right_sa_value);
         
         while (right_accessor[i] != STRING_TERMINATOR and right_accessor[i] != DATA_TERMINATOR)
@@ -510,6 +494,20 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
             buffers.insert(ra_j, thread);
             
             prev_samples = sa_updates.update_left(left, right, ra_i, ra_j, prev_samples, i, j, thread, right_accessor, left_accessor);
+            
+            // Breaking a run
+            if ((right_accessor[j] != left_accessor[ra_j - 1]) and (left.its(ra_j - 1) == sample_genre::NOT))
+            {
+                sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
+                sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples.second));
+            }
+            
+            if (((ra_j <= left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1 + 1]))
+            and (left.its(ra_j - 1 + 1) == sample_genre::NOT))
+            {
+                sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
+                sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples.second));
+            }
             
             sa_updates.update_right_min(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
             sa_updates.update_right_max(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
