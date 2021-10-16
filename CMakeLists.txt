@@ -147,6 +147,40 @@ endif()
 # Seqtk
 file(DOWNLOAD https://raw.githubusercontent.com/lh3/seqtk/master/kseq.h ${CMAKE_BINARY_DIR}/generated/kseq.h)
 
+
+# BigRepair
+ExternalProject_Add(BigRepair
+        GIT_REPOSITORY "https://gitlab.com/maxrossi91/bigrepair.git"
+        GIT_TAG ""
+        CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR}" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}" "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+        UPDATE_COMMAND ""
+        INSTALL_COMMAND "")
+ExternalProject_Get_property(BigRepair INSTALL_DIR)
+set(birepair-execs
+        "${INSTALL_DIR}/src/BigRepair-build/ipostproc"
+        "${INSTALL_DIR}/src/BigRepair-build/iprocdic"
+        "${INSTALL_DIR}/src/BigRepair-build/postproc"
+        "${INSTALL_DIR}/src/BigRepair-build/procdic"
+        "${INSTALL_DIR}/src/BigRepair-build/repair/despair"
+        "${INSTALL_DIR}/src/BigRepair-build/repair/idespair"
+        "${INSTALL_DIR}/src/BigRepair-build/repair/irepair"
+        "${INSTALL_DIR}/src/BigRepair-build/largeb_repair/largeb_despair"
+        "${INSTALL_DIR}/src/BigRepair-build/largeb_repair/largeb_idespair"
+        "${INSTALL_DIR}/src/BigRepair-build/largeb_repair/largeb_irepair"
+        "${INSTALL_DIR}/src/BigRepair-build/largeb_repair/largeb_repair"
+        )
+
+# BigRepair
+ExternalProject_Add(ShapeSlp
+        GIT_REPOSITORY "git@github.com:koeppl/ShapedSlp.git"
+        GIT_TAG ""
+        CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR}" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}" "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+        UPDATE_COMMAND ""
+        INSTALL_COMMAND "")
+ExternalProject_Get_property(ShapeSlp INSTALL_DIR)
+set(shapeslp-execs "${INSTALL_DIR}/src/ShapeSlp-build/SlpEncBuild")
+
+
 set(rimerge-includes
         "${CMAKE_SOURCE_DIR}/include"
         "${sdsl-include}"
@@ -184,6 +218,9 @@ target_link_libraries(rimerge ${rimerge_libs})
 
 target_compile_features(rimerge PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
 
+add_dependencies(rimerge BigRepair)
+add_dependencies(rimerge ShapeSlp)
+
 ################################################################################
 # Tools
 add_subdirectory(tools)
@@ -212,6 +249,8 @@ target_link_libraries(bwtmerge_tests rimerge ${rimerge-libs} ${gtest-lib})
 # Install
 install(PROGRAMS rimerge.py DESTINATION ${INSTALL_PATH} RENAME rimerge)
 install(PROGRAMS rimerge_pfp.py DESTINATION ${INSTALL_PATH} RENAME rimerge_pfp)
+install(PROGRAMS ${birepair-execs} DESTINATION ${INSTALL_PATH})
+install(PROGRAMS ${shapeslp-execs} DESTINATION ${INSTALL_PATH})
 
 
 

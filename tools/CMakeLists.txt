@@ -11,14 +11,6 @@ target_link_libraries(rimerge.x rimerge ${rimerge-libs})
 target_compile_features(rimerge.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
 
 ################################################################################
-# Concatenate FA
-
-add_executable(cfa.x concat_fa.cpp)
-target_include_directories(cfa.x PRIVATE ${rimerge-includes})
-target_link_libraries(cfa.x rimerge ${rimerge-libs} z)
-target_compile_features(cfa.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_type cxx_std_17)
-
-################################################################################
 # Big-BWT to saes
 
 add_executable(estw.x estw.cpp)
@@ -58,5 +50,5 @@ target_compile_features(stats.x PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_t
 
 ################################################################################
 # Install
-install(TARGETS rimerge.x stats.x rle.x check.x estw.x rimerge.x cfa.x check_sa.x RUNTIME DESTINATION ${INSTALL_PATH})
+install(TARGETS rimerge.x stats.x rle.x check.x estw.x rimerge.x check_sa.x RUNTIME DESTINATION ${INSTALL_PATH})
 

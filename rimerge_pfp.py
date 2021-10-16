@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import sys, time, argparse, subprocess, os, signal, random, string, shutil, errno
+import sys, time, argparse, subprocess, os, signal, random, string, shutil, errno, logging
+from psutil import virtual_memory
 
 Description = """
 Rimerge from PFP++
@@ -8,22 +9,33 @@ Rimerge from PFP++
 
 #------------------------------------------------------------
 # Absolute path of auxiliary executables
-dirname         = os.path.dirname(os.path.abspath(__file__))
-rimerge_exe     = os.path.join(dirname, "rimerge.x")
-estw_exe        = os.path.join(dirname, "estw.x")
-check_exe       = os.path.join(dirname, "check.x")
-check_sa_exe    = os.path.join(dirname, "check_sa.x")
-rle_exe         = os.path.join(dirname, "rle.x")
-cfa_exe         = os.path.join(dirname, "cfa.x")
+dirname                 = os.path.dirname(os.path.abspath(__file__))
+rimerge_exe             = os.path.join(dirname, "rimerge.x")
+estw_exe                = os.path.join(dirname, "estw.x")
+check_exe               = os.path.join(dirname, "check.x")
+check_sa_exe            = os.path.join(dirname, "check_sa.x")
+rle_exe                 = os.path.join(dirname, "rle.x")
+cfa_exe                 = os.path.join(dirname, "cfa.x")
 
-parsebwt_exe    = os.path.join(dirname, "bwtparse")
-parsebwt_exe64    = os.path.join(dirname, "bwtparse64")
+parsebwt_exe            = os.path.join(dirname, "bwtparse")
+parsebwt_exe64          = os.path.join(dirname, "bwtparse64")
 
-pfbwtNT_exe       = os.path.join(dirname, "pfbwtNT.x")
-pfbwtNT_exe64       = os.path.join(dirname, "pfbwtNT64.x")
+pfbwtNT_exe             = os.path.join(dirname, "pfbwtNT.x")
+pfbwtNT_exe64           = os.path.join(dirname, "pfbwtNT64.x")
 
-pfbwtSANT_exe       = os.path.join(dirname, "pfbwtSANT.x")
-pfbwtSANT_exe64       = os.path.join(dirname, "pfbwtSANT64.x")
+pfbwtSANT_exe           = os.path.join(dirname, "pfbwtSANT.x")
+pfbwtSANT_exe64         = os.path.join(dirname, "pfbwtSANT64.x")
+
+repair_exe              = os.path.join(dirname,"irepair")
+largerepair_exe         = os.path.join(dirname,"largeb_irepair")
+despair_exe             = os.path.join(dirname,"despair")
+integer_despair_exe     = os.path.join(dirname,"idespair")
+preprocess_exe          = os.path.join(dirname,"procdic")
+integer_preprocess_exe  = os.path.join(dirname,"iprocdic")
+postprocess_exe         = os.path.join(dirname,"postproc")
+integer_postprocess_exe = os.path.join(dirname,"ipostproc")
+
+shaped_slp              = os.path.join(dirname, "SlpEncBuild")
 
 #------------------------------------------------------------
 def remove_file(file_path):
@@ -46,26 +58,38 @@ def mkdir_p(path):
         else:
             raise # nop
 
-#------------------------------------------------------------
-# execute command: return True if everything OK, False otherwise
-def execute_command(command, seconds = 100000000):
+# ------------------------------------------------------------
+# execute command: return command's stdout if everything OK, None otherwise
+def execute_command(command, out_file_path='', time_it=False, seconds=10000000):
+    rootLogger = logging.getLogger()
     try:
-        process = subprocess.Popen(command.split(), preexec_fn=os.setsid)
+        if time_it:
+            command = '/usr/bin/time --verbose {}'.format(command)
+        rootLogger.info("Executing: {}".format(command))
+        process = subprocess.Popen(command.split(), preexec_fn=os.setsid, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        output, err = process.communicate()
         process.wait(timeout=seconds)
     except subprocess.CalledProcessError:
-        print("Error executing command line:")
-        print("\t"+ command)
-        return False
+        rootLogger.info("Error executing command line")
+        return None
     except subprocess.TimeoutExpired:
         os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        print("Command exceeded timeout:")
-        print("\t"+ command)
-        return False
-    return True
+        rootLogger.info("Command exceeded timeout")
+        return None
+    if output and out_file_path != '':
+        rootLogger.info('Writing output to {}'.format(out_file_path))
+        with open(out_file_path, "wb") as out_file:
+            out_file.write(output)
+    if err:
+        err = err.decode("utf-8")
+        rootLogger.info("\n" + err)
+    return output
+
 
 #------------------------------------------------------------
 # Run BigBWT
-def build_rindex(input_prefix, window_length, modulo, num_of_sequences, check):
+def build_rindex(input_prefix, window_length, modulo, num_of_sequences, check, text_start, text_end):
     # ----------- computation of the BWT of the parsing
     start = time.time()
     parse_size = os.path.getsize(input_prefix + ".parse")/4
@@ -80,8 +104,7 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences, check):
         command = "{exe} {file}".format(exe = parsebwt_exe, file=input_prefix)
     command += " -s"
     print("==== Computing BWT of parsing. Command:", command)
-    if(execute_command(command)!=True):
-        sys.exit(1)
+    execute_command(command)
     print("Elapsed time: {0:.4f}".format(time.time()-start));
 
     # ----------- compute final BWT using dictionary and BWT of parse
@@ -95,8 +118,7 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences, check):
             exe = pfbwtNT_exe, wsize=window_length, file=input_prefix)
 
     print("==== Computing final BWT. Command:", command)
-    if(execute_command(command)!=True):
-        sys.exit(1)
+    execute_command(command)
     print("Elapsed time: {0:.4f}".format(time.time()-start))
 
     # ----------- compute first N samples using dictionary and BWT of parse
@@ -114,26 +136,81 @@ def build_rindex(input_prefix, window_length, modulo, num_of_sequences, check):
             exe = pfbwtSANT_exe, wsize=window_length, file=input_prefix, N=num_of_sequences)
 
     print("==== Computing first N SA samples. Command:", command)
-    if(execute_command(command)!=True):
-        sys.exit(1)
+    execute_command(command)
     print("Elapsed time: {0:.4f}".format(time.time()-start))
     print("Total construction time: {0:.4f}".format(time.time()-start))
 
-    # ----------- compute
+    # ----------- convert samples in rimerge format
     command = "{estw} -i {i_prefix}".format(estw=estw_exe, i_prefix=input_prefix)
     execute_command(command)
 
-    remove_file(input_prefix + ".ssa")
-    remove_file(input_prefix + ".esa")
-    remove_file(input_prefix + ".nsa")
-    remove_file(input_prefix + ".ilist")
-    remove_file(input_prefix + ".bwlast")
-    remove_file(input_prefix + ".bwsai")
+    # ----------- add random access
+
+    # ---- preprocess the dictionary
+    start = time.time()
+    command = "{exe} {file}.dicz".format(exe=preprocess_exe, file=input_prefix)
+    print("==== Preprocessing the dictionary.\nCommand:", command, flush=True)
+    execute_command(command)
+    preprocess_time = time.time()-start
+    print("Preprocess time: {0:.4f}".format(preprocess_time), flush=True)
+
+    # ---- apply repair to the modified dictionary
+    start = time.time()
+
+    mem = virtual_memory()
+    repair_mem  = round(mem.total / 1024 / 1024) # total physical memory available in MB
+    print("RePair maximum memory: {}".format(repair_mem), flush=True)
+
+    command = "{exe} {file}.dicz.int {mb}".format(mb=repair_mem, exe=largerepair_exe, file=input_prefix)
+    print("==== Repair dictionary.\nCommand:", command, flush=True)
+    execute_command(command)
+    repair_time = time.time()-start
+    print("repair(dict) time: {0:.4f}".format(repair_time), flush=True)
+
+    # ---- apply repair to the parse
+    start = time.time()
+    command = "{exe} {file}.parse {mb}".format(mb=repair_mem,exe=largerepair_exe, file=input_prefix)
+    print("==== Repair parse.\nCommand:", command, flush=True)
+    execute_command(command)
+    repair_time = time.time()-start
+    print("repair(parse) time: {0:.4f}".format(repair_time), flush=True)
+
+    # ---- postprocess
+    start = time.time()
+    command = "{exe} {file}".format(exe=postprocess_exe, file=input_prefix)
+    print("==== Postprocessing the dictionary.\nCommand:", command, flush=True)
+    execute_command(command)
+    postprocess_time = time.time()-start
+    print("Postprocess time: {0:.4f}".format(postprocess_time), flush=True)
+
+    # ---- ShapeSLP
+    start = time.time()
+    command = "{exe} -i {file} -o {outfile}.{ext} -e {grammar} -f Bigrepair".format(
+        exe=shaped_slp, file=input_prefix,ext="slp", outfile=input_prefix,
+        grammar="SelfShapedSlp_SdSd_Sd")
+    print("==== ShapedSLP construction.\nCommand:", command, flush=True)
+    execute_command(command)
+    preprocess_time = time.time()-start
+    print("ShapedSLP construction time: {0:.4f}".format(preprocess_time), flush=True)
+
+    print("==== Done", flush=True)
+
+    for ext_to_remove in [".ssa", ".esa", ".nsa", ".ilist", ".bwlast", ".bwsai",
+                          ".parse.C", ".parse.R", ".dicz.int", ".dicz.int.C", ".dicz.int.R"]:
+
+        remove_file(input_prefix + ext_to_remove)
 
     mkdir_p(input_prefix + "_idx")
     os.replace(input_prefix + ".rlebwt", input_prefix + "_idx"+ "/bwt.rle")
     os.replace(input_prefix + ".rlebwt.meta", input_prefix + "_idx" + "/bwt.rle.meta")
     os.replace(input_prefix + ".saes", input_prefix + "_idx" + "/samples.saes")
+    os.replace(input_prefix + ".slp", input_prefix + "_idx" + "/grammar.slp")
+
+    with open(input_prefix + "_idx/text.meta", "wb") as metadata_file:
+        metadata_file.write(text_start.to_bytes(8, 'little'))
+        metadata_file.write(text_end.to_bytes(8, 'little'))
+        metadata_file.write(len("grammar.slp"))
+        metadata_file.write("grammar.slp")
 
     if (check):
         command = "{check} -i {i_prefix}_idx -o {i_prefix}_errors".format(i_prefix=input_prefix, check=check_exe)
@@ -159,19 +236,30 @@ def main():
     parser.add_argument('-t', '--search-jobs', help='number of search jobs', type=int, default=1, dest="search_jobs")
     parser.add_argument('-n', '--sequences', help='number of sequences', type=int, default=0, dest="num_of_sequences")
     parser.add_argument('-C', '--check', help='check output index structure', action='store_true',default=False, dest="check")
+    parser.add_argument('--text-start-0-based', type=int, dest="text_start", default=0)
+    parser.add_argument('--text-end-0-based', type=int, dest="text_end", default=0)
     args = parser.parse_args()
 
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    root_logger.addHandler(handler)
+
     print("Version: ")
-    execute_command("{rimerge} --version".format(rimerge=rimerge_exe), 10)
+    execute_command("{rimerge} --version".format(rimerge=rimerge_exe))
 
     # build index from pfp, A given as an index B given as pfp
     if (args.input_b is None):
         print("Build index")
-        build_rindex(args.input_a, args.window, args.modulo, args.num_of_sequences, args.check)
+        build_rindex(args.input_a, args.window, args.modulo, args.num_of_sequences, args.check, args.text_start, args.text_end)
     else:
         if (not os.path.isdir(args.input_b + "_idx")):
             print("Build index of {}".format(args.input_b))
-            build_rindex(args.input_b, args.window, args.modulo, args.num_of_sequences, args.check)
+            build_rindex(args.input_b, args.window, args.modulo, args.num_of_sequences, args.check, args.text_start, args.text_end)
         else:
             print("input_b is already an index, not re-computing")
         print("Start merging")
