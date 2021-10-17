@@ -27,6 +27,9 @@ pfbwtNT_exe64           = os.path.join(dirname, 'pfbwtNT64.x')
 pfbwtSANT_exe           = os.path.join(dirname, 'pfbwtSANT.x')
 pfbwtSANT_exe64         = os.path.join(dirname, 'pfbwtSANT64.x')
 
+pfp_thresholds          = os.path.join(dirname, 'pfp_thresholds')
+pfp_thresholds64        = os.path.join(dirname, 'pfp_thresholds64')
+
 repair_exe              = os.path.join(dirname,'irepair')
 largerepair_exe         = os.path.join(dirname,'largeb_irepair')
 despair_exe             = os.path.join(dirname,'despair')
@@ -114,20 +117,6 @@ def build_rindex(input_prefix, output_prefix, window_length, modulo, num_of_sequ
     execute_command(command)
     print('Elapsed time: {0:.4f}'.format(time.time()-start));
 
-    # ----------- compute final BWT using dictionary and BWT of parse
-    start = time.time()
-    if(os.path.getsize(input_prefix + '.dict') >=  (2**31-4) ):
-        # 64 bit version with and without threads
-        command = '{exe} -w {wsize} {file} -s -e'.format(
-            exe = pfbwtNT_exe64, wsize=window_length, file=input_prefix)
-    else:  # 32 bit version
-        command = '{exe} -w {wsize} {file} -s -e'.format(
-            exe = pfbwtNT_exe, wsize=window_length, file=input_prefix)
-
-    print('==== Computing final BWT. Command:', command)
-    execute_command(command)
-    print('Elapsed time: {0:.4f}'.format(time.time()-start))
-
     # ----------- compute first N samples using dictionary and BWT of parse
     if num_of_sequences == 0:
         print('The number of sequences needs to be specified for now')
@@ -146,6 +135,20 @@ def build_rindex(input_prefix, output_prefix, window_length, modulo, num_of_sequ
     execute_command(command)
     print('Elapsed time: {0:.4f}'.format(time.time()-start))
     print('Total construction time: {0:.4f}'.format(time.time()-start))
+
+    # ----------- compute final BWT, thresholds, ssa and esa
+    start = time.time()
+    parse_size = os.path.getsize(input_prefix + ".parse")/4
+    dictionary_size = os.path.getsize(input_prefix + ".dict")
+
+    if(parse_size >=  (2**31-1) or dictionary_size >=  (2**31-4) ):
+        command = "{exe} {file} -w {wsize}".format(exe=pfp_thresholds64,wsize=window_length, file=input_prefix)
+    else:
+        command = "{exe} {file} -w {wsize}".format(exe=pfp_thresholds,wsize=window_length, file=input_prefix)
+
+    print("==== Computing Thresholds. Command:", command, flush=True)
+    execute_command(command)
+    print("Thresholds Elapsed time: {0:.4f}".format(time.time()-start), flush=True);
 
     # ----------- convert samples in rimerge format
     command = '{estw} -i {i_prefix}'.format(estw=estw_exe, i_prefix=input_prefix)
@@ -213,6 +216,8 @@ def build_rindex(input_prefix, output_prefix, window_length, modulo, num_of_sequ
     move_file(input_prefix + '.rlebwt.meta', output_prefix + '_idx' + '/bwt.rle.meta')
     move_file(input_prefix + '.saes', output_prefix + '_idx' + '/samples.saes')
     move_file(input_prefix + '.slp', output_prefix + '_idx' + '/grammar_0.slp')
+    move_file(input_prefix + '.thr', output_prefix + '_idx' + '/thresholds.thr')
+    move_file(input_prefix + '.thr_pos', output_prefix + '_idx' + '/thresholds.thr_pos')
 
     with open(output_prefix + '_idx/random_access.meta', 'wb') as metadata_file:
         metadata_file.write(int(1).to_bytes(8, 'little'))

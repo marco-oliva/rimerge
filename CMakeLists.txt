@@ -170,6 +170,18 @@ set(birepair-execs
         "${INSTALL_DIR}/src/BigRepair-build/largeb_repair/largeb_repair"
         )
 
+# PFPThresholds
+ExternalProject_Add(PFPThresholds
+        GIT_REPOSITORY "git@github.com:marco-oliva/pfp-thresholds.git"
+        GIT_TAG ""
+        CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${INSTALL_DIR}" "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}" "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}" "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+        UPDATE_COMMAND ""
+        INSTALL_COMMAND "")
+ExternalProject_Get_property(PFPThresholds INSTALL_DIR)
+set(pfpthresholds-execs
+        "${INSTALL_DIR}/src/PFPThresholds-build/test/src/pfp_thresholds"
+        "${INSTALL_DIR}/src/PFPThresholds-build/test/src/pfp_thresholds64")
+
 # BigRepair
 ExternalProject_Add(ShapeSlp
         GIT_REPOSITORY "git@github.com:koeppl/ShapedSlp.git"
@@ -220,6 +232,7 @@ target_compile_features(rimerge PUBLIC cxx_constexpr cxx_lambdas cxx_long_long_t
 
 add_dependencies(rimerge BigRepair)
 add_dependencies(rimerge ShapeSlp)
+add_dependencies(rimerge PFPThresholds)
 
 ################################################################################
 # Tools
@@ -251,6 +264,7 @@ install(PROGRAMS rimerge.py DESTINATION ${INSTALL_PATH} RENAME rimerge)
 install(PROGRAMS rimerge_pfp.py DESTINATION ${INSTALL_PATH} RENAME rimerge_pfp)
 install(PROGRAMS ${birepair-execs} DESTINATION ${INSTALL_PATH})
 install(PROGRAMS ${shapeslp-execs} DESTINATION ${INSTALL_PATH})
+install(PROGRAMS ${pfpthresholds-execs} DESTINATION ${INSTALL_PATH})
 
 
 
