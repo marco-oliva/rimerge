@@ -38,6 +38,12 @@ public:
         using left_map_type = std::map<size_type, left_type>;
         //                              RA value
         using right_map_type = std::map<size_type, right_type>;
+
+        // Main maps
+        std::mutex main_maps_mtx;
+        left_map_type left_samples_main;
+        std::pair<right_map_type, right_map_type> right_samples_main;
+
         
         std::vector<left_map_type> left_samples;
         //                      min j       max j
@@ -62,69 +68,90 @@ public:
         
         right_type find_right_min(size_type ra_value) const
         {
-            std::vector<right_type> results;
-    
-            // Get results computed by all threads
-            for (size_type i = 0; i < right_samples.size(); i++)
+            auto entry = right_samples_main.first.find(ra_value);
+            if ( entry != right_samples_main.first.end())
             {
-                auto entry = right_samples[i].first.find(ra_value);
-                if ( entry != right_samples[i].first.end())
-                    results.push_back(entry->second);
+                return entry->second;
             }
-    
-            // Combine results
-            if (results.size() != 0)
-            {
-                right_type out = results[0];
-                for (size_type i = 1; i < results.size(); i++)
-                {
-                    if (out.first > results[i].first) { out = results[i]; }
-                }
-                return out;
-            }
-            else
-            {
-                return end_right();
-            }
+            return end_right();
         }
         
         right_type find_right_max(size_type ra_value) const
         {
-            std::vector<right_type> results;
-    
-            // Get results computed by all threads
-            for (size_type i = 0; i < right_samples.size(); i++)
+            auto entry = right_samples_main.second.find(ra_value);
+            if ( entry != right_samples_main.second.end())
             {
-                auto entry = right_samples[i].second.find(ra_value);
-                if ( entry != right_samples[i].second.end())
-                    results.push_back(entry->second);
+                return entry->second;
             }
-    
-            // Combine results
-            if (results.size() != 0)
-            {
-                right_type out = results[0];
-                for (size_type i = 1; i < results.size(); i++)
-                {
-                    if (out.first < results[i].first) { out = results[i]; }
-                }
-                return out;
-            }
-            else
-            {
-                return end_right();
-            }
+            return end_right();
         }
         
         const left_type& find_left(size_type ra_value) const
         {
-            for (size_type i = 0; i < left_samples.size(); i++)
+            auto entry = left_samples_main.find(ra_value);
+            if ( entry != left_samples_main.end())
             {
-                auto entry = left_samples[i].find(ra_value);
-                if ( entry != left_samples[i].end())
-                    return entry->second;
+                return entry->second;
             }
             return end_left();
+        }
+
+        void merge_thread_maps_into_main_map(size_type thread)
+        {
+            std::lock_guard<std::mutex> lock(main_maps_mtx);
+
+            // left map
+            left_map_type& left_thread_map = left_samples[thread];
+            for (auto& ra_to_samples : left_thread_map)
+            {
+                if (not left_samples_main.contains(ra_to_samples.first))
+                {
+                    left_samples_main.insert(ra_to_samples);
+                }
+            }
+
+            // right map min
+            right_map_type& right_min_thread_map = right_samples[thread].first;
+            right_map_type& right_main_min_samples = right_samples_main.first;
+            for (auto& ra_to_min_samples : right_min_thread_map)
+            {
+                if (not right_main_min_samples.contains(ra_to_min_samples.first))
+                {
+                    right_main_min_samples.insert(ra_to_min_samples);
+                }
+                else
+                {
+                    if ( ra_to_min_samples.second.first < right_main_min_samples.find(ra_to_min_samples.first)->second.first )
+                    {
+                        right_main_min_samples.erase(ra_to_min_samples.first);
+                        right_main_min_samples.insert(ra_to_min_samples);
+                    }
+                }
+            }
+
+            // right map max
+            right_map_type& right_max_thread_map = right_samples[thread].second;
+            right_map_type& right_main_max_samples = right_samples_main.second;
+            for (auto& ra_to_max_samples : right_max_thread_map)
+            {
+                if (not right_main_max_samples.contains(ra_to_max_samples.first))
+                {
+                    right_main_max_samples.insert(ra_to_max_samples);
+                }
+                else
+                {
+                    if ( ra_to_max_samples.second.first > right_main_max_samples.find(ra_to_max_samples.first)->second.first )
+                    {
+                        right_main_max_samples.erase(ra_to_max_samples.first);
+                        right_main_max_samples.insert(ra_to_max_samples);
+                    }
+                }
+            }
+
+            // Clear the maps
+            left_thread_map.clear();
+            right_min_thread_map.clear();
+            right_max_thread_map.clear();
         }
     
         ////////////////////////////////////////////////////////////

@@ -358,6 +358,11 @@ RIndexRLE::SamplesMergerRLE::operator()(size_type index, RLEString::RunCache& ri
 std::pair<size_type, size_type>
 RIndexRLE::SAUpdatesRLE::update_left(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEString>& right, size_type ra_i, size_type ra_j, std::pair<size_type, size_type> prev_samples, size_type i, size_type j, size_type thread, RLEString::Accessor& right_accessor, RLEString::Accessor& left_accessor)
 {
+    if (left_samples_main.contains(ra_j) and left_samples_main.contains(ra_j - 1))
+    {
+        return std::make_pair(left_samples_main.find(ra_j - 1)->second, left_samples_main.find(ra_j)->second);
+    }
+
     left_map_type& thread_map = left_samples[thread];
     
     if (thread_map.find(ra_j) == thread_map.end() or thread_map.find(ra_j - 1) == thread_map.end())
@@ -419,9 +424,13 @@ RIndexRLE::SAUpdatesRLE::update_left(const RIndex<RIndexRLE, RLEString>& left, c
 void
 RIndexRLE::SAUpdatesRLE::update_right_min(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEString>& right, size_type ra_j, size_type j, size_type sa_value, size_type thread, RLEString::Accessor& right_accessor, RLEString::Accessor& left_accessor)
 {
-    auto& thread_map_min = right_samples[thread].first;
+    // Check main map
+    auto entry_min_main = right_samples_main.first.find(ra_j);
+    if (entry_min_main != right_samples_main.first.end() and j >= entry_min_main->second.first)
+    { return; }
     
-    // Min
+    // Thread map
+    auto& thread_map_min = right_samples[thread].first;
     auto entry_min = thread_map_min.find(ra_j);
     if (entry_min != thread_map_min.end())
     {
@@ -437,9 +446,13 @@ RIndexRLE::SAUpdatesRLE::update_right_min(const RIndex<RIndexRLE, RLEString>& le
 void
 RIndexRLE::SAUpdatesRLE::update_right_max(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEString>& right, size_type ra_j, size_type j, size_type sa_value, size_type thread, RLEString::Accessor& right_accessor, RLEString::Accessor& left_accessor)
 {
+    // Check main map
+    auto entry_max_main = right_samples_main.second.find(ra_j);
+    if (entry_max_main != right_samples_main.second.end() and j <= entry_max_main->second.first)
+    { return; }
+
+    // Thread map
     auto& thread_map_max = right_samples[thread].second;
-    
-    // Max
     auto entry_max = thread_map_max.find(ra_j);
     if (entry_max != thread_map_max.end())
     {
@@ -466,57 +479,70 @@ void
 buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEString>& right, MergeBuffers& buffers, RIndexRLE::SAUpdatesRLE& sa_updates)
 {
     double start = readTimer();
-    
-    #pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
-    for (size_type sequence = 0; sequence < right.sequences(); sequence++)
+
+    size_type chunks = right.sequences() / buffers.threads();
+    if (right.sequences() % buffers.threads() != 0) { chunks += 1; }
+    std::vector<range_type> chunks_ranges = Range::partition(range_type(0, right.sequences() - 1), chunks);
+
+    for (auto& chunk : chunks_ranges)
     {
-        size_type thread = omp_get_thread_num();
-        
-        RLEString::Accessor right_accessor(right.bwt());
-        RLEString::Accessor left_accessor(left.bwt());
-        
-        size_type right_sa_value = right.samples()[sequence];
-        size_type j = 0, ra_j = 0, i = sequence, ra_i = left.sequences();
-        buffers.insert(ra_i, thread);
-        
-        std::pair<size_type, size_type> prev_samples = std::make_pair(left.samples()[ra_i -1], left.samples()[ra_i]);
-        sa_updates.left_samples[thread].insert(std::make_pair((ra_i - 1), prev_samples.first));
-        sa_updates.left_samples[thread].insert(std::make_pair((ra_i), prev_samples.second));
-        spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence , i, char(right_accessor[i]), i, right_sa_value);
-        
-        while (right_accessor[i] != STRING_TERMINATOR and right_accessor[i] != DATA_TERMINATOR)
+        #pragma omp parallel for schedule(dynamic, buffers.parameters.chunk_size)
+        for (size_type sequence = std::get<0>(chunk); sequence <= std::get<1>(chunk); sequence++)
         {
-            j = right.LF(i, right_accessor[i]);
-            right_sa_value = right_sa_value - 1;
-            
-            ra_j = left.LF(ra_i, right_accessor[i]); //RA[pos] = LF_a(prev_v, a.bwt()[i])
-            
-            buffers.insert(ra_j, thread);
-            
-            prev_samples = sa_updates.update_left(left, right, ra_i, ra_j, prev_samples, i, j, thread, right_accessor, left_accessor);
-            
-            // Breaking a run
-            if ((right_accessor[j] != left_accessor[ra_j - 1]) and (left.its(ra_j - 1) == sample_genre::NOT))
+            size_type thread = omp_get_thread_num();
+
+            RLEString::Accessor right_accessor(right.bwt());
+            RLEString::Accessor left_accessor(left.bwt());
+
+            size_type right_sa_value = right.samples()[sequence];
+            size_type j = 0, ra_j = 0, i = sequence, ra_i = left.sequences();
+            buffers.insert(ra_i, thread);
+
+            std::pair<size_type, size_type> prev_samples = std::make_pair(left.samples()[ra_i -1], left.samples()[ra_i]);
+            sa_updates.left_samples[thread].insert(std::make_pair((ra_i - 1), prev_samples.first));
+            sa_updates.left_samples[thread].insert(std::make_pair((ra_i), prev_samples.second));
+            spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence , i, char(right_accessor[i]), i, right_sa_value);
+
+            while (right_accessor[i] != STRING_TERMINATOR and right_accessor[i] != DATA_TERMINATOR)
             {
-                sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
-                sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples.second));
+                j = right.LF(i, right_accessor[i]);
+                right_sa_value = right_sa_value - 1;
+
+                ra_j = left.LF(ra_i, right_accessor[i]); //RA[pos] = LF_a(prev_v, a.bwt()[i])
+
+                buffers.insert(ra_j, thread);
+
+                prev_samples = sa_updates.update_left(left, right, ra_i, ra_j, prev_samples, i, j, thread, right_accessor, left_accessor);
+
+                // Breaking a run
+                if ((right_accessor[j] != left_accessor[ra_j - 1]) and (left.its(ra_j - 1) == sample_genre::NOT))
+                {
+                    sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
+                    sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples.second));
+                }
+
+                if (((ra_j <= left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1 + 1]))
+                    and (left.its(ra_j - 1 + 1) == sample_genre::NOT))
+                {
+                    sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
+                    sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples.second));
+                }
+
+                sa_updates.update_right_min(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
+                sa_updates.update_right_max(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
+
+                i = j;
+                ra_i = ra_j;
             }
-            
-            if (((ra_j <= left.size() - 1) and (right_accessor[j] != left_accessor[ra_j - 1 + 1]))
-            and (left.its(ra_j - 1 + 1) == sample_genre::NOT))
-            {
-                sa_updates.left_samples[thread].insert(std::make_pair(ra_j - 1, prev_samples.first));
-                sa_updates.left_samples[thread].insert(std::make_pair(ra_j, prev_samples.second));
-            }
-            
-            sa_updates.update_right_min(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
-            sa_updates.update_right_max(left, right, ra_j, j, right_sa_value, thread, right_accessor, left_accessor);
-            
-            i = j;
-            ra_i = ra_j;
+
+            spdlog::debug("rimerge::buildRA(): S {} Done", sequence);
+    }
+
+        spdlog::info("Chunk: ({}, {}) done. Merging maps.", std::get<0>(chunk), std::get<1>(chunk));
+        for (std::size_t i = 0; i < buffers.threads(); i++)
+        {
+            sa_updates.merge_thread_maps_into_main_map(i);
         }
-        
-        spdlog::debug("rimerge::buildRA(): S {} Done", sequence);
     }
     
     buffers.flush();

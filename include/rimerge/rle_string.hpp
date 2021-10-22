@@ -106,9 +106,7 @@ public:
     static bool equal(const RunType& left, const RunType& right) { return left.offset == right.offset; }
 };
 
-
 //------------------------------------------------------------------------------
-
 
 class RLEString
 {

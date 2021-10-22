@@ -34,9 +34,8 @@ public:
     
         void print_size()
         {
-            size_type elements_left = 0, elements_right = 0;
-            for (size_type i = 0; i < left_samples.size(); i++) {elements_left += left_samples[i].size(); }
-            for (size_type i = 0; i < right_samples.size(); i++) {elements_right += right_samples[i].first.size(); elements_right += right_samples[i].second.size(); }
+            size_type elements_left = left_samples_main.size();
+            size_type elements_right = right_samples_main.first.size() + right_samples_main.second.size();
             if(Verbosity::level >= Verbosity::FULL)
             {
                 spdlog::info("rimerge::SAUpdatesRLE: {} elements in left map", elements_left);

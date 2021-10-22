@@ -1,7 +1,12 @@
-
 tests/files/**/*.meta
 tests/files/**/*.rle
 tests/files/**/*.saes
 tests/files/*.seq
 tests/files/*.meta
+*.seq
+*.meta
 *.o
+.idea/*
+build/*
+bin/*
+cmake-*

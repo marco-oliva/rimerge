@@ -321,7 +321,7 @@ csa_to_ri(sdsl::csa_bitcompressed<>& in_csa, std::string out_prefix)
         // replace 0 with data terminator
         if (in_csa.bwt[i] != '\0') { encoder(in_csa.bwt[i]); }
         else { encoder(rimerge::DATA_TERMINATOR); }
-        
+
     }
 }
 
@@ -338,11 +338,11 @@ TEST(TwoStrings, Rimerge)
     // r-index type
     typedef rimerge::RIndexRLE RIndexType;
     typedef rimerge::RLEString BWTType;
-    
+
     for (std::size_t i = 0; i < 1; i++)
     {
         // Generate two random r-indxes
-    
+
         // sequences, DATA_TERMINATOR is pushed by sdsl. (It pushes 0 and we substitute it with DATA_TERMINATOR)
         rimerge::string_type s1, s2, sm, seed;
         seed = random_string(1000); seed.pop_back(); // remove terminator
@@ -351,37 +351,37 @@ TEST(TwoStrings, Rimerge)
         sm.insert(sm.end(), s2.begin(), s2.end());
         sm.push_back(rimerge::STRING_TERMINATOR);
         sm.insert(sm.end(), s1.begin(), s1.end());
-    
+
         // compute bwt and samples for both sequences and for merged sequence
         sdsl::csa_bitcompressed<> csa1, csa2, csam;
         build_csa(csa1, s1);
         build_csa(csa2, s2);
         build_csa(csam, sm);
-    
+
         // r-indexes on disk
         csa_to_ri(csa1, "s1");
         csa_to_ri(csa2, "s2");
-    
+
         // Merge s1 and s2
         rimerge::RIndex<RIndexType, BWTType> r1, r2, rm;
         read_from_prefix(testfiles_dir + "/s1", r1);
         read_from_prefix(testfiles_dir + "/s2", r2);
-    
+
         rimerge::MergeParameters merge_parameters;
         merge_parameters.setMergeJobs(1);
         merge_parameters.setMergeBuffers(1);
         merge_parameters.setSearchJobs(1);
         merge_parameters.out_prefix = testfiles_dir + "/rm";
         rimerge::RIndex<RIndexType, BWTType>::merge(r1, r2, merge_parameters);
-    
+
         read_from_prefix(testfiles_dir + "/rm/", rm);
-    
+
         // Extract sequences from bwt
         rimerge::string_type o1 = rm.get_sequence(0);
         rimerge::string_type o2 = rm.get_sequence(1);
         EXPECT_EQ(s1, o1);
         EXPECT_EQ(s2, o2);
-    
+
         // Check bwt
         rimerge::string_type bwt_string = rm.bwt().to_string();
         EXPECT_EQ(csam.bwt.size(), bwt_string.size());
@@ -389,12 +389,12 @@ TEST(TwoStrings, Rimerge)
         {
             EXPECT_TRUE((csam.bwt[i] == bwt_string[i]) or (rimerge::is_terminator(bwt_string[i])));
         }
-    
+
         // Suffx Array Samples, structural correctness
         std::tuple<std::vector<rimerge::size_type>, std::vector<rimerge::size_type>, std::vector<rimerge::size_type>> errors;
         bool check = rimerge::RIndexRLE::check(rm, errors);
         EXPECT_TRUE(check);
-    
+
         // Suffix Array Samples, values. Extract each sequence and check samples
         rimerge::size_type sa_value = s1.size() + s2.size() + 2 - 1;
         rimerge::size_type j = 1;
@@ -403,7 +403,7 @@ TEST(TwoStrings, Rimerge)
             if (rm.its(j) != rimerge::sample_genre::NOT) { EXPECT_EQ(sa_value, rm.samples()[j]); }
             j = rm.LF(j); sa_value -= 1;
         }
-    
+
         sa_value = s1.size();
         j = 0;
         while (not rimerge::is_terminator(rm.bwt()[j]))
