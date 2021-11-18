@@ -501,7 +501,10 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
             std::pair<size_type, size_type> prev_samples = std::make_pair(left.samples()[ra_i -1], left.samples()[ra_i]);
             sa_updates.left_samples[thread].insert(std::make_pair((ra_i - 1), prev_samples.first));
             sa_updates.left_samples[thread].insert(std::make_pair((ra_i), prev_samples.second));
-            spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence , i, char(right_accessor[i]), i, right_sa_value);
+            if(Verbosity::level >= Verbosity::FULL)
+            {
+                spdlog::info("rimerge::buildRA(): S: {} B[{}]: {} SA[{}]: {}", sequence, i, char(right_accessor[i]), i, right_sa_value);
+            }
 
             while (right_accessor[i] != STRING_TERMINATOR and right_accessor[i] != DATA_TERMINATOR)
             {
@@ -535,10 +538,14 @@ buildRA(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLEStr
                 ra_i = ra_j;
             }
 
-            spdlog::debug("rimerge::buildRA(): S {} Done", sequence);
-    }
+            if(Verbosity::level >= Verbosity::FULL) { spdlog::info("rimerge::buildRA(): S {} Done", sequence); }
+        }
 
-        spdlog::info("Chunk: ({}, {}) done. Merging maps.", std::get<0>(chunk), std::get<1>(chunk));
+        if(Verbosity::level >= Verbosity::FULL)
+        {
+            spdlog::info("Chunk: ({}, {}) done. Merging maps.", std::get<0>(chunk), std::get<1>(chunk));
+        }
+
         for (std::size_t i = 0; i < buffers.threads(); i++)
         {
             sa_updates.merge_thread_maps_into_main_map(i);
@@ -588,7 +595,7 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         
         // Check how many ra values in current range,
         size_type current_ra_values = buffers.range_values[job];;
-        spdlog::info("Job {} RA values in current range: {}", job, current_ra_values);
+        if(Verbosity::level >= Verbosity::FULL) { spdlog::info("Job {} RA values in current range: {}", job, current_ra_values); }
         
         // Set up this job
         size_type prev_ra = 0, next_ra = 0, curr_ra = 0;
@@ -611,11 +618,14 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
         
         bool tok = true;
         curr_ra = *ra; ++ra; next_ra = *ra;
-    
-        spdlog::info("Job: {} Left Range: [{},{}] left_iter: {} right_iter: {}, curr_ra: {}, prev_ra: {}",
-                     job, buffers.job_ranges[job].first,
-                     buffers.job_ranges[job].second, left_iter, right_iter, curr_ra, prev_ra);
-        
+
+        if(Verbosity::level >= Verbosity::FULL)
+        {
+            spdlog::info("Job: {} Left Range: [{},{}] left_iter: {} right_iter: {}, curr_ra: {}, prev_ra: {}",
+                         job, buffers.job_ranges[job].first,
+                         buffers.job_ranges[job].second, left_iter, right_iter, curr_ra, prev_ra);
+        }
+
         while (curr_ra != invalid_value())
         {
             // Add from 'left'
@@ -654,8 +664,8 @@ interleave(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRLE, RLE
             sample_merger(left_iter, right_cache, left_cache, true, left_iter + right_iter, curr_ra, prev_ra, next_ra);
             ++left_iter;
         }
-        
-        spdlog::info("Last left inserted by {}: {}", job, left_iter - 1);
+
+        if(Verbosity::level >= Verbosity::FULL) { spdlog::info("Last left inserted by {}: {}", job, left_iter - 1); }
         
         // Close files
         saes.close();
@@ -696,7 +706,7 @@ RIndexRLE::merge(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRL
     
     if (right.empty())
     {
-        if (Verbosity::level >= Verbosity::FULL)
+        if (Verbosity::level >= Verbosity::BASIC)
         {
             spdlog::error("rimerge::merge() : The input r-index is empty");
         }
@@ -711,10 +721,10 @@ RIndexRLE::merge(const RIndex<RIndexRLE, RLEString>& left, const RIndex<RIndexRL
     MergeBuffers mb(right.size(), parameters.search_jobs, parameters, ranges);
     RIndexRLE::SAUpdatesRLE positions(parameters.search_jobs);
     buildRA(left, right, mb, positions);
-    spdlog::info("rimerge::merge(): Building the rank array done");
+    if(Verbosity::level >= Verbosity::BASIC) { spdlog::info("rimerge::merge(): Building the rank array done"); }
     
     interleave(left, right, mb, positions);
-    spdlog::info("rimerge::merge(): Interleaving done");
+    if(Verbosity::level >= Verbosity::BASIC) { spdlog::info("rimerge::merge(): Interleaving done");}
     
     if(Verbosity::level >= Verbosity::BASIC)
     {

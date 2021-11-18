@@ -91,39 +91,44 @@ def execute_command(command, out_file_path='', time_it=False, seconds=10000000):
         rootLogger.info('Writing output to {}'.format(out_file_path))
         with open(out_file_path, 'wb') as out_file:
             out_file.write(output)
+    elif output:
+        output = output.decode('utf-8')
+        rootLogger.info('CMD stoud:\n' + output)
     if err:
         err = err.decode('utf-8')
-        rootLogger.info('\n' + err)
+        rootLogger.info('CMD stderr:\n' + err)
     return output
 
 
 #------------------------------------------------------------
 # Run BigBWT
-def build_rindex(input_prefix, output_prefix, window_length, modulo, num_of_sequences, check, text_start, text_end):
+def build_rindex(input_prefix, output_prefix, window_length, num_of_sequences, check, text_start, text_end, build_moni=False):
+    root_logger = logging.getLogger()
+
     # ----------- computation of the BWT of the parsing
     start = time.time()
     parse_size = os.path.getsize(input_prefix + '.parse')/4
-    if(parse_size >=  (2**32-1) ):
-        print('Sorry, the parse contains %d words' %  parse_size )
-        print('which is more than my current limit 2^32-2')
-        print('Please re-run the program with a larger modulus')
+    if parse_size >= (2 ** 32 - 1):
+        root_logger.info('Sorry, the parse contains {} words'.format(parse_size))
+        root_logger.info('which is more than my current limit 2^32-2')
+        root_logger.info('Please re-run the program with a larger modulus')
         sys.exit(1)
-    elif(parse_size >=  (2**31-1) ):
+    elif parse_size >= (2 ** 31 - 1):
         command = '{exe} {file}'.format(exe = parsebwt_exe64, file=input_prefix)
     else:
         command = '{exe} {file}'.format(exe = parsebwt_exe, file=input_prefix)
     command += ' -s'
-    print('==== Computing BWT of parsing. Command:', command)
+    root_logger.info('==== Computing BWT of parsing.')
     execute_command(command)
-    print('Elapsed time: {0:.4f}'.format(time.time()-start));
+    root_logger.info('==== Done')
 
     # ----------- compute first N samples using dictionary and BWT of parse
     if num_of_sequences == 0:
-        print('The number of sequences needs to be specified for now')
+        root_logger.info('The number of sequences needs to be specified for now')
         sys.exit(1)
 
     start = time.time()
-    if(os.path.getsize(input_prefix + '.dict') >=  (2**31-4) ):
+    if os.path.getsize(input_prefix + '.dict') >= (2 ** 31 - 4):
         # 64 bit version with and without threads
         command = '{exe} -N {N} -w {wsize} {file}'.format(
             exe = pfbwtSANT_exe64, wsize=window_length, file=input_prefix, N=num_of_sequences)
@@ -131,100 +136,117 @@ def build_rindex(input_prefix, output_prefix, window_length, modulo, num_of_sequ
         command = '{exe} -N {N} -w {wsize} {file}'.format(
             exe = pfbwtSANT_exe, wsize=window_length, file=input_prefix, N=num_of_sequences)
 
-    print('==== Computing first N SA samples. Command:', command)
+    root_logger.info('==== Computing first N SA samples')
     execute_command(command)
-    print('Elapsed time: {0:.4f}'.format(time.time()-start))
-    print('Total construction time: {0:.4f}'.format(time.time()-start))
+    root_logger.info('==== Done')
 
-    # ----------- compute final BWT, thresholds, ssa and esa
-    start = time.time()
-    parse_size = os.path.getsize(input_prefix + ".parse")/4
-    dictionary_size = os.path.getsize(input_prefix + ".dict")
+    if build_moni:
+        # ----------- compute final BWT, thresholds, ssa and esa
+        start = time.time()
+        parse_size = os.path.getsize(input_prefix + '.parse')/4
+        dictionary_size = os.path.getsize(input_prefix + '.dict')
 
-    if(parse_size >=  (2**31-1) or dictionary_size >=  (2**31-4) ):
-        command = "{exe} {file} -w {wsize}".format(exe=pfp_thresholds64,wsize=window_length, file=input_prefix)
+        if parse_size >= (2 ** 31 - 1) or dictionary_size >= (2 ** 31 - 4):
+            command = '{exe} {file} -w {wsize}'.format(exe=pfp_thresholds64,wsize=window_length, file=input_prefix)
+        else:
+            command = '{exe} {file} -w {wsize}'.format(exe=pfp_thresholds,wsize=window_length, file=input_prefix)
+
+        root_logger.info('==== Computing Thresholds. ')
+        execute_command(command)
+        root_logger.info('==== Done')
+
+        # ----------- add random access
+
+        # ---- preprocess the dictionary
+        start = time.time()
+        command = '{exe} {file}.dicz'.format(exe=preprocess_exe, file=input_prefix)
+        root_logger.info('==== Preprocessing the dictionary')
+        execute_command(command)
+        preprocess_time = time.time()-start
+        root_logger.info('==== Done')
+
+        # ---- apply repair to the modified dictionary
+        start = time.time()
+
+        mem = virtual_memory()
+        repair_mem  = round(mem.total / 1024 / 1024) # total physical memory available in MB
+        root_logger.info('RePair maximum memory: {}'.format(repair_mem))
+
+        command = '{exe} {file}.dicz.int {mb}'.format(mb=repair_mem, exe=largerepair_exe, file=input_prefix)
+        root_logger.info('==== Repair dictionary.')
+        execute_command(command)
+        repair_time = time.time()-start
+        root_logger.info('==== Done')
+
+        # ---- apply repair to the parse
+        start = time.time()
+        command = '{exe} {file}.parse {mb}'.format(mb=repair_mem,exe=largerepair_exe, file=input_prefix)
+        root_logger.info('==== Repair parse.')
+        execute_command(command)
+        repair_time = time.time()-start
+        root_logger.info('==== Done')
+
+        # ---- postprocess
+        start = time.time()
+        command = '{exe} {file}'.format(exe=postprocess_exe, file=input_prefix)
+        root_logger.info('==== Postprocessing the dictionary.')
+        execute_command(command)
+        postprocess_time = time.time()-start
+        root_logger.info('==== Done')
+
+        # ---- ShapeSLP
+        start = time.time()
+        command = '{exe} -i {file} -o {outfile}.{ext} -e {grammar} -f Bigrepair'.format(
+            exe=shaped_slp, file=input_prefix,ext='slp', outfile=input_prefix,
+            grammar='SelfShapedSlp_SdSd_Sd')
+        root_logger.info('==== ShapedSLP construction.')
+        execute_command(command)
+        preprocess_time = time.time()-start
+        root_logger.info('==== Done')
+
+        exts_to_remove = ['.ssa', '.esa', '.nsa', '.ilist', '.bwlast', '.bwsai', '.C', '.R',
+         '.parse.C', '.parse.R', '.dicz.int', '.dicz.int.C', '.dicz.int.R']
+        remove_file('rs_temp_output')
+
     else:
-        command = "{exe} {file} -w {wsize}".format(exe=pfp_thresholds,wsize=window_length, file=input_prefix)
+        # ----------- compute final BWT using dictionary and BWT of parse
+        start = time.time()
+        if(os.path.getsize(input_prefix + '.dict') >=  (2**31-4) ):
+            # 64 bit version with and without threads
+            command = '{exe} -w {wsize} {file} -s -e'.format(exe=pfbwtNT_exe64, wsize=window_length, file=input_prefix)
+        else:  # 32 bit version
+            command = '{exe} -w {wsize} {file} -s -e'.format(exe=pfbwtNT_exe, wsize=window_length, file=input_prefix)
 
-    print("==== Computing Thresholds. Command:", command, flush=True)
-    execute_command(command)
-    print("Thresholds Elapsed time: {0:.4f}".format(time.time()-start), flush=True);
+        root_logger.info('==== Computing final BWT.')
+        execute_command(command)
+        root_logger.info('==== Done')
+
+        exts_to_remove = ['.ssa', '.esa', '.nsa', '.ilist', '.bwlast', '.bwsai']
 
     # ----------- convert samples in rimerge format
     command = '{estw} -i {i_prefix}'.format(estw=estw_exe, i_prefix=input_prefix)
     execute_command(command)
 
-    # ----------- add random access
+    root_logger.info('==== Done')
 
-    # ---- preprocess the dictionary
-    start = time.time()
-    command = '{exe} {file}.dicz'.format(exe=preprocess_exe, file=input_prefix)
-    print('==== Preprocessing the dictionary.\nCommand:', command, flush=True)
-    execute_command(command)
-    preprocess_time = time.time()-start
-    print('Preprocess time: {0:.4f}'.format(preprocess_time), flush=True)
-
-    # ---- apply repair to the modified dictionary
-    start = time.time()
-
-    mem = virtual_memory()
-    repair_mem  = round(mem.total / 1024 / 1024) # total physical memory available in MB
-    print('RePair maximum memory: {}'.format(repair_mem), flush=True)
-
-    command = '{exe} {file}.dicz.int {mb}'.format(mb=repair_mem, exe=largerepair_exe, file=input_prefix)
-    print('==== Repair dictionary.\nCommand:', command, flush=True)
-    execute_command(command)
-    repair_time = time.time()-start
-    print('repair(dict) time: {0:.4f}'.format(repair_time), flush=True)
-
-    # ---- apply repair to the parse
-    start = time.time()
-    command = '{exe} {file}.parse {mb}'.format(mb=repair_mem,exe=largerepair_exe, file=input_prefix)
-    print('==== Repair parse.\nCommand:', command, flush=True)
-    execute_command(command)
-    repair_time = time.time()-start
-    print('repair(parse) time: {0:.4f}'.format(repair_time), flush=True)
-
-    # ---- postprocess
-    start = time.time()
-    command = '{exe} {file}'.format(exe=postprocess_exe, file=input_prefix)
-    print('==== Postprocessing the dictionary.\nCommand:', command, flush=True)
-    execute_command(command)
-    postprocess_time = time.time()-start
-    print('Postprocess time: {0:.4f}'.format(postprocess_time), flush=True)
-
-    # ---- ShapeSLP
-    start = time.time()
-    command = '{exe} -i {file} -o {outfile}.{ext} -e {grammar} -f Bigrepair'.format(
-        exe=shaped_slp, file=input_prefix,ext='slp', outfile=input_prefix,
-        grammar='SelfShapedSlp_SdSd_Sd')
-    print('==== ShapedSLP construction.\nCommand:', command, flush=True)
-    execute_command(command)
-    preprocess_time = time.time()-start
-    print('ShapedSLP construction time: {0:.4f}'.format(preprocess_time), flush=True)
-
-    print('==== Done', flush=True)
-
-    for ext_to_remove in ['.ssa', '.esa', '.nsa', '.ilist', '.bwlast', '.bwsai', '.C', '.R',
-                          '.parse.C', '.parse.R', '.dicz.int', '.dicz.int.C', '.dicz.int.R']:
-
+    for ext_to_remove in exts_to_remove:
         remove_file(input_prefix + ext_to_remove)
-    remove_file('rs_temp_output')
 
     mkdir_p(output_prefix + '_idx')
     move_file(input_prefix + '.rlebwt', output_prefix + '_idx'+ '/bwt.rle')
     move_file(input_prefix + '.rlebwt.meta', output_prefix + '_idx' + '/bwt.rle.meta')
     move_file(input_prefix + '.saes', output_prefix + '_idx' + '/samples.saes')
-    move_file(input_prefix + '.slp', output_prefix + '_idx' + '/grammar_0.slp')
-    move_file(input_prefix + '.thr', output_prefix + '_idx' + '/thresholds.thr')
-    move_file(input_prefix + '.thr_pos', output_prefix + '_idx' + '/thresholds.thr_pos')
+    if build_moni:
+        move_file(input_prefix + '.slp', output_prefix + '_idx' + '/grammar_0.slp')
+        move_file(input_prefix + '.thr', output_prefix + '_idx' + '/thresholds.thr')
+        move_file(input_prefix + '.thr_pos', output_prefix + '_idx' + '/thresholds.thr_pos')
 
-    with open(output_prefix + '_idx/random_access.meta', 'wb') as metadata_file:
-        metadata_file.write(int(1).to_bytes(8, 'little'))
-        metadata_file.write(text_start.to_bytes(8, 'little'))
-        metadata_file.write(text_end.to_bytes(8, 'little'))
-        metadata_file.write(len('grammar_0.slp').to_bytes(8, 'little'))
-        metadata_file.write('grammar_0.slp'.encode('UTF-8'))
+        with open(output_prefix + '_idx/random_access.meta', 'wb') as metadata_file:
+            metadata_file.write(int(1).to_bytes(8, 'little'))
+            metadata_file.write(text_start.to_bytes(8, 'little'))
+            metadata_file.write(text_end.to_bytes(8, 'little'))
+            metadata_file.write(len('grammar_0.slp').to_bytes(8, 'little'))
+            metadata_file.write('grammar_0.slp'.encode('UTF-8'))
 
     if (check):
         command = '{check} -i {i_prefix}_idx -o {i_prefix}_errors'.format(i_prefix=input_prefix, check=check_exe)
@@ -234,74 +256,75 @@ def build_rindex(input_prefix, output_prefix, window_length, modulo, num_of_sequ
 
 #------------------------------------------------------------
 # Run merge
-def run_merge(left_file_path, right_file_path, out_file_path, merge_jobs, search_jobs):
+def run_merge(left_file_path, right_file_path, out_file_path, merge_jobs, search_jobs, build_moni=False):
     # merge indexes
     command = '{rimerge} -a {left} -b {right} -o {out} -m {mj} -t {sj}'.format(rimerge=rimerge_exe, left=left_file_path, right=right_file_path, out=out_file_path, mj=merge_jobs, sj=search_jobs)
     execute_command(command)
 
-    # merge grammars for random access
-    grammars_left  = list()
-    grammars_right = list()
+    if (build_moni):
+        # merge grammars for random access
+        grammars_left  = list()
+        grammars_right = list()
 
-    # from left
-    max_from_left = np.uint64(0)
-    with open(left_file_path + '/random_access.meta', 'rb') as ra_meta:
-        n_of_grammar = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
-        i = np.uint64(0)
-        while i < n_of_grammar:
-            i += 1
-            text_start  = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
-            text_end    = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+        # from left
+        max_from_left = np.uint64(0)
+        with open(left_file_path + '/random_access.meta', 'rb') as ra_meta:
+            n_of_grammar = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+            i = np.uint64(0)
+            while i < n_of_grammar:
+                i += 1
+                text_start  = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+                text_end    = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
 
-            if (text_end > max_from_left):
-                max_from_left = text_end
+                if (text_end > max_from_left):
+                    max_from_left = text_end
 
-            name_length = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
-            name        = struct.unpack('{}s'.format(name_length.item()), ra_meta.read(name_length.item()))
-            name        = name[0].decode('UTF-8')
-            grammar = [name, text_start, text_end]
-            grammars_left.append(grammar)
+                name_length = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+                name        = struct.unpack('{}s'.format(name_length.item()), ra_meta.read(name_length.item()))
+                name        = name[0].decode('UTF-8')
+                grammar = [name, text_start, text_end]
+                grammars_left.append(grammar)
 
-    # from right
-    with open(right_file_path + '/random_access.meta', 'rb') as ra_meta:
-        n_of_grammar = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
-        i = np.uint64(0)
-        while i < n_of_grammar:
-            i += 1
-            text_start  = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
-            text_end    = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
-            name_length = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
-            name        = struct.unpack('{}s'.format(name_length.item()), ra_meta.read(name_length.item()))
-            name        = name[0].decode('UTF-8')
-            grammar = [name, text_start, text_end]
-            grammars_right.append(grammar)
+        # from right
+        with open(right_file_path + '/random_access.meta', 'rb') as ra_meta:
+            n_of_grammar = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+            i = np.uint64(0)
+            while i < n_of_grammar:
+                i += 1
+                text_start  = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+                text_end    = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+                name_length = np.uint64(struct.unpack('<Q', ra_meta.read(8)))
+                name        = struct.unpack('{}s'.format(name_length.item()), ra_meta.read(name_length.item()))
+                name        = name[0].decode('UTF-8')
+                grammar = [name, text_start, text_end]
+                grammars_right.append(grammar)
 
-    # merge grammars into the merged index folder
-    id = 0
-    with open(out_file_path + '/random_access.meta', 'wb') as metadata_file:
-        metadata_file.write(int(len(grammars_left) + len(grammars_right)).to_bytes(8, 'little'))
+        # merge grammars into the merged index folder
+        id = 0
+        with open(out_file_path + '/random_access.meta', 'wb') as metadata_file:
+            metadata_file.write(int(len(grammars_left) + len(grammars_right)).to_bytes(8, 'little'))
 
-        for grammar in grammars_left:
-            grammar_new_name = 'grammar_{}.slp'.format(id)
-            id += 1
+            for grammar in grammars_left:
+                grammar_new_name = 'grammar_{}.slp'.format(id)
+                id += 1
 
-            metadata_file.write(grammar[1].item().to_bytes(8, 'little'))
-            metadata_file.write(grammar[2].item().to_bytes(8, 'little'))
-            metadata_file.write(len(grammar_new_name).to_bytes(8, 'little'))
-            metadata_file.write(grammar_new_name.encode('UTF-8'))
+                metadata_file.write(grammar[1].item().to_bytes(8, 'little'))
+                metadata_file.write(grammar[2].item().to_bytes(8, 'little'))
+                metadata_file.write(len(grammar_new_name).to_bytes(8, 'little'))
+                metadata_file.write(grammar_new_name.encode('UTF-8'))
 
-            copy_file(left_file_path + '/' + grammar[0], out_file_path + '/' + grammar_new_name)
+                copy_file(left_file_path + '/' + grammar[0], out_file_path + '/' + grammar_new_name)
 
-        for grammar in grammars_right:
-            grammar_new_name = 'grammar_{}.slp'.format(id)
-            id += 1
+            for grammar in grammars_right:
+                grammar_new_name = 'grammar_{}.slp'.format(id)
+                id += 1
 
-            metadata_file.write(((grammar[1] + max_from_left).item()).to_bytes(8, 'little'))
-            metadata_file.write(((grammar[2] + max_from_left).item()).to_bytes(8, 'little'))
-            metadata_file.write(len(grammar_new_name).to_bytes(8, 'little'))
-            metadata_file.write(grammar_new_name.encode('UTF-8'))
+                metadata_file.write(((grammar[1] + max_from_left).item()).to_bytes(8, 'little'))
+                metadata_file.write(((grammar[2] + max_from_left).item()).to_bytes(8, 'little'))
+                metadata_file.write(len(grammar_new_name).to_bytes(8, 'little'))
+                metadata_file.write(grammar_new_name.encode('UTF-8'))
 
-            copy_file(right_file_path + '/' + grammar[0], out_file_path + '/' + grammar_new_name)
+                copy_file(right_file_path + '/' + grammar[0], out_file_path + '/' + grammar_new_name)
 
 #------------------------------------------------------------
 def main():
@@ -317,6 +340,8 @@ def main():
     parser.add_argument('-C', '--check', help='check output index structure', action='store_true',default=False, dest='check')
     parser.add_argument('--text-start-0-based', type=int, dest='text_start', default=0)
     parser.add_argument('--text-end-0-based', type=int, dest='text_end', default=0)
+    parser.add_argument('--moni', help='build other MONI structures', action='store_true',default=False, dest='build_moni')
+
     args = parser.parse_args()
 
     root_logger = logging.getLogger()
@@ -328,22 +353,22 @@ def main():
     handler.setFormatter(formatter)
     root_logger.addHandler(handler)
 
-    print('Version: ')
+    root_logger.info('rimerge Version: ')
     execute_command('{rimerge} --version'.format(rimerge=rimerge_exe))
 
     # build index from pfp, A given as an index B given as pfp
     if (args.input_b is None):
-        print('Build index')
-        build_rindex(args.input_a, args.output, args.window, args.modulo, args.num_of_sequences, args.check, args.text_start, args.text_end)
+        root_logger.info('Build index')
+        build_rindex(args.input_a, args.output, args.window, args.num_of_sequences, args.check, args.text_start, args.text_end, args.build_moni)
     else:
         if (not os.path.isdir(args.input_b)):
-            print('Build index of {}'.format(args.input_b))
-            build_rindex(args.input_b, args.output, args.window, args.modulo, args.num_of_sequences, args.check, args.text_start, args.text_end)
+            root_logger.info('Build index of {}'.format(args.input_b))
+            build_rindex(args.input_b, args.output, args.window, args.num_of_sequences, args.check, args.text_start, args.text_end, args.build_moni)
         else:
-            print('input_b is already an index, not re-computing')
-        print('Start merging')
+            root_logger.info('input_b is already an index, not re-computing')
+        root_logger.info('Start merging')
         mkdir_p(args.output + '_idx')
-        run_merge(args.input_a, args.input_b, args.output + '_idx', args.merge_jobs, args.search_jobs)
+        run_merge(args.input_a, args.input_b, args.output + '_idx', args.merge_jobs, args.search_jobs, args.build_moni)
 
     if (args.check):
         command = '{} -i {} -o {}'.format(check_exe, args.output + '_idx', args.output + '_idx')
