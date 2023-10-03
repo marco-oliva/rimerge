@@ -19,3 +19,17 @@ make install
 This will create a `bin` directory where you will find `rimerge`
 
 
+#### Citing
+
+This work was supported by NIH R01AI141810 and made publicly available under GNU license.  If you use any parts of the repository, please acknowledge via citation of the above publications and this repository. 
+
+```
+@inproceedings{oliva2021efficiently,
+  title={Efficiently Merging r-indexes},
+  author={Oliva, Marco and Rossi, Massimiliano and Sir{\'e}n, Jouni and Manzini, Giovanni and Kahveci, Tamer and Gagie, Travis and Boucher, Christina},
+  booktitle={2021 Data Compression Conference (DCC)},
+  pages={203--212},
+  year={2021},
+  organization={IEEE}
+}
+```
