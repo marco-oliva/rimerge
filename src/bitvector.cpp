@@ -1,8 +1,9 @@
 //
 //  bitvector.cpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
-//
+//  Bitvector heavly inspired by Nicola Prezza's implementation.
+//  https://github.com/nicolaprezza/r-index
+
 
 #include <rimerge/bitvector.hpp>
 

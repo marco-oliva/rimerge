@@ -1,8 +1,9 @@
 //
 //  stats.cpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
-//
+// Copyright (c) Boucher Lab. All rights reserved.
+// Licensed under the GNU license. See LICENSE file in the repository root for full license information.
+
 
 #include <CLI/CLI.hpp>
 #include <spdlog/spdlog.h>

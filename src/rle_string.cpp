@@ -3,7 +3,6 @@
 //
 //  Run length encoded string heavly inspired by Nicola Prezza's implementation.
 //  https://github.com/nicolaprezza/r-index
-//
 
 #include <rimerge/rle_string.hpp>
 

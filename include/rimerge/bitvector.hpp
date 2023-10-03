@@ -1,8 +1,6 @@
 //
 //  bitvector.hpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
-//
 
 #ifndef bitvector_hpp
 #define bitvector_hpp

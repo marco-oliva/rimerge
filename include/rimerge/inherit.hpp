@@ -1,8 +1,7 @@
 //
 //  inherit.hpp
 //
-//  Copyright 2020 Marco Oliva. All rights reserved.
-//
+//  Copyright 2020 Franco Milicchio. All rights reserved.
 
 #ifndef inherit_hpp
 #define inherit_hpp
